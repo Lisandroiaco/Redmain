@@ -1,6 +1,6 @@
 # Red Main — Ojo Rojo Games
 
-Juego de terror para celular (Android). Demo 0.2: **intro del estudio**, **menú principal** y la pantalla de **JUGAR** con tres modos (Historia, 1 Jugador y Online).
+Juego de terror para celular (Android). Demo 0.3: **intro del estudio**, **menú principal** y la pantalla de **JUGAR** con tres modos (Historia, 1 Jugador y Online).
 
 | Intro "Ojo Rojo Games" | Menú (JUGAR resaltado) |
 |---|---|
@@ -37,12 +37,31 @@ Juego de terror para celular (Android). Demo 0.2: **intro del estudio**, **menú
 - **Online (beta, funciona de verdad)**: buscador de salas activas con jugadores y ping, crear sala, entrar, lista de jugadores, chat, botón "Estoy listo" y el anfitrión inicia la partida para todos. Usa **PeerJS**: los celulares se conectan directo (P2P) y el servidor público de PeerJS solo los presenta, así que no hace falta montar un servidor propio. Hasta 8 salas a la vez, 4 jugadores por sala.
   - Para usar un servidor PeerJS propio: abrí el juego con `?peer=https://tu-servidor:443/` o guardá `{"url":"https://tu-servidor/"}` en `localStorage["redmain.peer"]`.
 
+## Nivel 1 jugable — El Castillo del Terror (demo 0.3)
+
+| Inicio en el vestíbulo | Forjando en la herrería |
+|---|---|
+| ![inicio](docs/nivel1-inicio.jpg) | ![forja](docs/nivel1-forja.jpg) |
+
+**Mapa completo** (9 salas: Biblioteca, Salón del Trono, Capilla, Cocina, Patio Interior, Alcoba de la Dama, Herrería, Vestíbulo y Cripta):
+
+![mapa](docs/mapa-castillo.png)
+
+- **Vista 2D desde arriba** al estilo de los survival horror 2D de celular: pixel art, oscuridad total con farol propio, antorchas, velas y chimeneas que titilan, y lluvia con relámpagos en el patio (adentro se oye la tormenta apagada).
+- **Protagonista** (pixel art generado por código): hombre grande con barba, lentes, pelo corto y remera. Tiene animaciones de **caminar, correr y agacharse** en 4 direcciones ([hoja de sprites](docs/protagonista.png)).
+- **Controles de celu**: joystick a la izquierda (aparece donde apoyás el dedo), botones **ACCIÓN** (cambia a AGARRAR / LEER / FORJAR / ABRIR según lo que tengas cerca), **CORRER** y **AGACHAR**, y pausa. Correr gasta estamina; agachado vas lento y tus pasos casi no se oyen.
+- **Teclado** (navegador): flechas o WASD, R correr, C agacharse, E o espacio acción, Esc pausa.
+- **Objetivo**: juntar los 5 materiales (2 lingotes de hierro, carbón, clavos y el martillo del herrero), **forjar la herradura** en el yunque de la Herrería y usarla en el **portón** del Vestíbulo para escapar. Se guarda el mejor tiempo.
+- **Colisiones** contra muros y muebles. Hay 4 notas para leer con la historia de la Dama Blanca, y la Dama aparece en dos momentos con guion fijo (un susto al juntar el segundo material y otro en el espejo de la alcoba). **Todavía no te persigue**: eso viene después.
+- El nivel se carga con el cargador propio (mapa, muebles, sprites y luces) antes de entrar, así no se traba.
+
 ## Estructura
 
 ```
 ./
   web/        el juego (HTML5 Canvas); se puede abrir index.html en el navegador
     lib/      PeerJS 1.5.5 (MIT) para el online
+    js/game/  nivel jugable: sprites.js (personaje), castle.js (mapa), level.js (motor)
   android/    proyecto Android nativo (WebView a pantalla completa, horizontal, inmersivo)
   tools/      make-icons.cjs: genera los íconos de la app
   docs/       capturas

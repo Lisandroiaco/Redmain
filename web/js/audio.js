@@ -4,7 +4,7 @@
   'use strict';
   var A = { ready: false };
   var ctx, master, musicBus, sfxBus, ambBus, revIn;
-  var rainGain = null, musicOn = false, nextNote = 0, noteIdx = 5;
+  var rainGain = null, muffle = null, musicOn = false, nextNote = 0, noteIdx = 5;
   var white, brown;
 
   // Escala de Re menor armónica, registro medio: suena a caja de música rota.
@@ -103,7 +103,9 @@
   A.startAmbience = function () {
     if (!ctx || rainGain) return;
     rainGain = gainNode(0);
-    rainGain.connect(ambBus);
+    muffle = filter('lowpass', 20000, 0.5);
+    rainGain.connect(muffle);
+    muffle.connect(ambBus);
     chain(loop(white), filter('highpass', 450), filter('lowpass', 6500), gainNode(0.55), rainGain);
     chain(loop(white, 1.3), filter('bandpass', 2600, 0.6), gainNode(0.35), rainGain);
     chain(loop(brown), filter('lowpass', 750), gainNode(0.6), rainGain);
@@ -264,6 +266,103 @@
     var t = ctx.currentTime;
     noiseHit(t, 'bandpass', 500, 0.3, 0.35, 2);
     thump(t, 90, 0.35, 0.3);
+  };
+
+  /* ---------- Sonidos del nivel ---------- */
+
+  // Lluvia "apagada" cuando estás bajo techo (1) o abierta afuera (0).
+  A.setMuffle = function (v) {
+    if (!ctx || !muffle) return;
+    muffle.frequency.setTargetAtTime(v ? 650 : 20000, ctx.currentTime, 0.4);
+  };
+
+  A.step = function (floor, mode) {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    var amp = mode === 'crouch' ? 0.07 : mode === 'run' ? 0.3 : 0.18;
+    if (floor === 'wood') { noiseHit(t, 'bandpass', RM.rand(380, 520), amp * 1.4, 0.09, 3); thump(t, 120, amp * 0.6, 0.08); }
+    else if (floor === 'grass') noiseHit(t, 'highpass', RM.rand(2500, 3500), amp * 0.7, 0.12);
+    else { noiseHit(t, 'bandpass', RM.rand(1400, 2200), amp, 0.06, 2); thump(t, 90, amp * 0.4, 0.05); }
+  };
+
+  A.pickup = function () {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    bell(t, 587.33, 0.16); bell(t + 0.09, 880, 0.12); bell(t + 0.18, 1174.7, 0.08);
+  };
+
+  A.page = function () {
+    if (!ctx) return;
+    noiseHit(ctx.currentTime, 'highpass', 1800, 0.25, 0.18);
+  };
+
+  A.clang = function () {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    for (var i = 0; i < 3; i++) {
+      var tt = t + i * 0.45;
+      [1, 2.76, 5.4, 8.9].forEach(function (m, k) {
+        var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 420 * m * (1 + i * 0.01);
+        var g = gainNode(0);
+        g.gain.setValueAtTime(0, tt); g.gain.linearRampToValueAtTime(0.18 / (k + 1), tt + 0.003);
+        g.gain.exponentialRampToValueAtTime(0.0001, tt + 1.4 / (k * 0.6 + 1));
+        chain(o, g, sfxBus); o.start(tt); o.stop(tt + 1.5);
+      });
+      noiseHit(tt, 'highpass', 3000, 0.3, 0.08);
+    }
+    bell(t + 1.5, 880, 0.15); bell(t + 1.62, 1318.5, 0.12);
+  };
+
+  A.gate = function () {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    var r = ctx.createBufferSource(); r.buffer = brown; r.loop = true;
+    var g = gainNode(0);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1.2, t + 0.3); g.gain.linearRampToValueAtTime(0.8, t + 1.8); g.gain.exponentialRampToValueAtTime(0.001, t + 2.4);
+    chain(r, filter('lowpass', 220, 2), g, sfxBus); r.start(t); r.stop(t + 2.5);
+    A.creak();
+    thump(t + 2.1, 70, 1, 0.8);
+  };
+
+  A.creak = function () {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    var o = ctx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(90, t); o.frequency.linearRampToValueAtTime(140, t + 0.6); o.frequency.linearRampToValueAtTime(70, t + 1.3);
+    var lfo = ctx.createOscillator(); lfo.frequency.value = 23;
+    var lg = gainNode(30); chain(lfo, lg, o.frequency); lfo.start(t); lfo.stop(t + 1.4);
+    var g = gainNode(0);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.12, t + 0.2); g.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+    chain(o, filter('bandpass', 700, 3), g, sfxBus); o.start(t); o.stop(t + 1.5);
+  };
+
+  A.whisper = function () {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    for (var i = 0; i < 5; i++) {
+      var tt = t + i * RM.rand(0.18, 0.32);
+      var s = ctx.createBufferSource(); s.buffer = white;
+      var f = filter('bandpass', RM.rand(1800, 3800), 9);
+      var g = gainNode(0);
+      g.gain.setValueAtTime(0, tt); g.gain.linearRampToValueAtTime(0.5, tt + 0.08); g.gain.exponentialRampToValueAtTime(0.001, tt + 0.35);
+      var pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+      if (pan) { pan.pan.value = RM.rand(-0.9, 0.9); chain(s, f, g, pan, sfxBus); } else chain(s, f, g, sfxBus);
+      s.start(tt, Math.random(), 0.4);
+    }
+  };
+
+  A.scream = function () {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    [1, 1.5, 2.02].forEach(function (m) {
+      var o = ctx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(620 * m, t); o.frequency.linearRampToValueAtTime(980 * m, t + 0.25); o.frequency.linearRampToValueAtTime(540 * m, t + 1.0);
+      var g = gainNode(0);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.14, t + 0.04); g.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
+      chain(o, filter('bandpass', 1400, 1.5), g, sfxBus); o.start(t); o.stop(t + 1.2);
+    });
+    noiseHit(t, 'bandpass', 2500, 0.5, 0.9, 1);
+    thump(t, 60, 1, 0.6);
   };
 
   RM.audio = A;

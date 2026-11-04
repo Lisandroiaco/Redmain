@@ -16,6 +16,7 @@
   var fade = 1, fadeTarget = 1, fadeSpeed = 1;
   var stateT = 0, last = 0, running = true, built = false;
   var play = null;            // contexto de la partida en curso
+  var level = null;           // nivel jugable activo
   var saveAcc = 0;
 
   var $ = function (id) { return document.getElementById(id); };
@@ -76,6 +77,12 @@
       if (intro.done) enterMenu();
       return;
     }
+    if (state === 'level') {
+      level.update(dt);
+      level.draw(ctx, W, H, dpr);
+      if (fade > 0.003) { ctx.fillStyle = 'rgba(0,0,0,' + Math.min(1, fade) + ')'; ctx.fillRect(0, 0, W, H); }
+      return;
+    }
 
     var playing = state === 'play';
     menuFade += (((view === 'menu' && !playing) ? 1 : 0) - menuFade) * Math.min(1, dt * 5);
@@ -99,12 +106,12 @@
     scene.drawPost(ctx);
 
     if (playing) { drawPlay(dt); }
-    loader.draw(ctx, W, H);
 
     if (fade > 0.003) {
       ctx.fillStyle = 'rgba(0,0,0,' + Math.min(1, fade) + ')';
       ctx.fillRect(0, 0, W, H);
     }
+    loader.draw(ctx, W, H);
   }
 
   function drawTap() {
@@ -257,8 +264,32 @@
     }
   }
 
+  // Nivel jugable: carga el mapa completo (tiles, muebles, sprites, luces) antes de entrar.
+  function startLevel() {
+    closePanels(true);
+    setState('loading');
+    scene.strike(true);
+    level = new RM.Level(exitLevel);
+    fadeTarget = 0.7; fadeSpeed = 0.6;
+    loader.start(level.tasks(), function () {
+      setState('level');
+      fade = 1; fadeTarget = 0; fadeSpeed = 0.7;
+      RM.audio.setMuffle(1);
+    }, { minTime: 2.6, label: 'CARGANDO MAPA' });
+  }
+
+  function exitLevel() {
+    level = null;
+    RM.audio.setMuffle(0);
+    setState('modes');
+    fade = 1; fadeTarget = 0; fadeSpeed = 0.8;
+    RM.Screens.renderSolo();
+    openPanel('solo');
+  }
+
   // Arranca una partida con pantalla de carga.
   function startPlay(ctxPlay) {
+    if (ctxPlay.mode === 'solo' && ctxPlay.level === 1) { startLevel(); return; }
     closePanels(true);
     setState('loading');
     scene.strike(true);
@@ -270,7 +301,6 @@
 
   function endPlay() {
     if (play && play.mode === 'story' && saveAcc > 0) RM.Screens.tickSave(play.slot, saveAcc);
-    if (play && play.mode === 'solo') RM.Screens.saveRecord(play.level, stateT);
     var back = play ? play.mode : null;
     play = null;
     RM.audio.back();
@@ -375,6 +405,12 @@
     return state === 'menu' ? menu : state === 'modes' ? modes : null;
   }
 
+  ['down', 'move', 'up', 'cancel'].forEach(function (k) {
+    canvas.addEventListener('pointer' + k, function (e) {
+      if (state === 'level') { e.stopImmediatePropagation(); e.preventDefault(); level.pointer(k, e); }
+    });
+  });
+
   canvas.addEventListener('pointerdown', function (e) {
     e.preventDefault();
     if (state === 'tap') { startIntro(); return; }
@@ -413,8 +449,10 @@
     menu.pressed = menu.hover = modes.pressed = modes.hover = null;
   });
 
+  window.addEventListener('keyup', function (e) { if (state === 'level') level.key(false, e); });
   window.addEventListener('keydown', function (e) {
     if (e.target && (e.target.tagName === 'INPUT')) return;
+    if (state === 'level') { if (!e.repeat) level.key(true, e); e.preventDefault(); return; }
     if (state === 'tap' && (e.key === 'Enter' || e.key === ' ')) { startIntro(); return; }
     if (state === 'intro') { intro.skip(); return; }
     if (e.key === 'Escape' || e.key === 'Backspace') { RM.onBack(); return; }
@@ -455,13 +493,17 @@
   RM.onBack = function () {
     if (openName) { closePanels(); return true; }
     if (state === 'loading') return true;
+    if (state === 'level') { level.back(); return true; }
     if (state === 'play') { endPlay(); return true; }
     if (state === 'modes') { goMenu(); return true; }
     if (state === 'intro') { intro.skip(); return true; }
     if (state === 'menu') { openPanel('confirm'); RM.audio.back(); return true; }
     return false;
   };
-  RM.onPause = function () { RM.audio.suspend(); };
+  RM.onPause = function () {
+    if (state === 'level' && level && !level.won) level.paused = true;
+    RM.audio.suspend();
+  };
   RM.onResume = function () { if (state !== 'tap' && state !== 'boot') RM.audio.resume(); last = 0; };
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) RM.onPause(); else RM.onResume();
@@ -485,6 +527,6 @@
     });
   }
 
-  RM.debug = { scene: scene, menu: menu, modes: modes, loader: loader, activate: activate, state: function () { return state; } };
+  RM.debug = { level: function () { return level; }, scene: scene, menu: menu, modes: modes, loader: loader, activate: activate, state: function () { return state; } };
   boot();
 })(window.RM);

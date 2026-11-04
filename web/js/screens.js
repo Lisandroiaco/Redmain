@@ -161,7 +161,8 @@
 
   Screens.saveRecord = function (n, sec) {
     var rec = Screens.records();
-    if (!rec[n] || sec > rec[n]) { rec[n] = sec; store(KEY_RECORDS, rec); }
+    // Récord = el escape más rápido.
+    if (!rec[n] || sec < rec[n]) { rec[n] = sec; store(KEY_RECORDS, rec); }
   };
 
   Screens.esc = esc;

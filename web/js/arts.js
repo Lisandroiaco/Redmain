@@ -157,14 +157,21 @@
   // Miniaturas de los 4 niveles de 1 Jugador.
   Art.level = function (n, g, w, h) {
     var r = seeded(50 + n * 7), i;
-    if (n === 1) { // El Claro
-      sky(g, w, h, [[0, '#0c1424'], [1, '#26324a']]);
-      glow(g, w * 0.7, h * 0.25, h * 0.5, 'rgba(200,220,255,0.35)');
-      g.fillStyle = '#dfe8ff'; g.beginPath(); g.arc(w * 0.7, h * 0.25, h * 0.09, 0, 6.283); g.fill();
-      g.fillStyle = '#0a0f12';
-      for (i = 0; i < 9; i++) { var x = r() * w, th = h * (0.35 + r() * 0.3); g.beginPath(); g.moveTo(x - th * 0.25, h * 0.85); g.lineTo(x, h * 0.85 - th); g.lineTo(x + th * 0.25, h * 0.85); g.fill(); }
-      g.fillStyle = '#0f1a12'; g.fillRect(0, h * 0.84, w, h);
-      glow(g, w * 0.5, h * 0.88, h * 0.3, 'rgba(180,200,255,0.25)');
+    if (n === 1) { // El Castillo del Terror
+      sky(g, w, h, [[0, '#0c0a1c'], [1, '#2a1c3a']]);
+      glow(g, w * 0.75, h * 0.22, h * 0.45, 'rgba(220,220,255,0.35)');
+      g.fillStyle = '#e8e8f6'; g.beginPath(); g.arc(w * 0.75, h * 0.22, h * 0.08, 0, 6.283); g.fill();
+      g.fillStyle = '#08060e';
+      g.fillRect(w * 0.18, h * 0.42, w * 0.64, h * 0.5);
+      [[0.14, 0.3, 0.12], [0.44, 0.18, 0.12], [0.74, 0.32, 0.12]].forEach(function (tw) {
+        g.fillRect(w * tw[0], h * tw[1], w * tw[2], h);
+        g.beginPath(); g.moveTo(w * (tw[0] - 0.02), h * tw[1]); g.lineTo(w * (tw[0] + tw[2] / 2), h * (tw[1] - 0.14)); g.lineTo(w * (tw[0] + tw[2] + 0.02), h * tw[1]); g.fill();
+      });
+      for (i = 0; i < 12; i++) g.fillRect(w * (0.18 + i * 0.055), h * 0.38, w * 0.03, h * 0.05);
+      g.fillStyle = '#ffb040';
+      [[0.2, 0.45], [0.5, 0.3], [0.78, 0.5], [0.35, 0.6], [0.62, 0.62]].forEach(function (p) { if (r() < 0.85) g.fillRect(w * p[0], h * p[1], 3, 5); });
+      g.fillStyle = '#f0f0f8'; g.fillRect(w * 0.505, h * 0.27, 2, 5);
+      g.fillStyle = '#0c1a10'; g.fillRect(0, h * 0.9, w, h * 0.1);
     } else if (n === 2) { // Pantano de Ceniza
       sky(g, w, h, [[0, '#2a2a28'], [0.6, '#4a4740'], [1, '#1a1a18']]);
       for (i = 0; i < 5; i++) deadTree(g, w * (0.1 + i * 0.2) + (r() - 0.5) * 20, h * 0.8, h * (0.5 + r() * 0.3), '#141412', r);
@@ -208,7 +215,7 @@
   };
 
   Art.LEVELS = [
-    { n: 1, name: 'El Claro', diff: 1, label: 'Fácil', desc: 'Encontrá las 5 linternas antes de que la luna se esconda.' },
+    { n: 1, name: 'El Castillo del Terror', diff: 2, label: 'Normal', desc: 'La Dama Blanca vaga por los pasillos. Juntá los materiales, forjá la herradura y escapá.' },
     { n: 2, name: 'Pantano de Ceniza', diff: 2, label: 'Normal', desc: 'Cruzá el pantano sin hundirte. Algo respira bajo el agua.' },
     { n: 3, name: 'La Ciudad Ahogada', diff: 3, label: 'Difícil', desc: 'Las ventanas rojas te miran. No te quedes quieto.' },
     { n: 4, name: 'Ojo de la Tormenta', diff: 4, label: 'Pesadilla', desc: 'Sobreviví a la tormenta. El ojo nunca parpadea.' }
