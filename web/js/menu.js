@@ -75,8 +75,10 @@
     this.gear.rect = { x0: this.gear.x - gs * 1.8, y0: this.gear.y - gs * 1.8, x1: this.gear.x + gs * 6.4, y1: this.gear.y + gs * 1.8 };
   };
 
-  Menu.prototype.buildTitle = function (W, H, dpr, portrait) {
-    var fs = Math.min(H * (portrait ? 0.1 : 0.155), W * (portrait ? 0.2 : 0.12));
+  // scale/yFrac permiten reusar el letrero más chico (pantalla de modos).
+  Menu.prototype.buildTitle = function (W, H, dpr, portrait, scale, yFrac) {
+    scale = scale || 1;
+    var fs = Math.min(H * (portrait ? 0.1 : 0.155), W * (portrait ? 0.2 : 0.12)) * scale;
     var cw = fs * 4.2, ch = fs * 2.7;
     var shape = mk(cw * dpr, ch * dpr), g = shape.getContext('2d');
     g.scale(dpr, dpr);
@@ -151,7 +153,7 @@
       art: art, full: full,
       glow: blur(full, fs * 0.14 * dpr, '#ff1800'),
       shadow: blur(full, fs * 0.08 * dpr, '#000'),
-      x: W / 2 - cw / 2, y: H * (portrait ? 0.14 : 0.1) - fs * 0.1, w: cw, h: ch
+      x: W / 2 - cw / 2, y: H * (yFrac != null ? yFrac : (portrait ? 0.14 : 0.1)) - fs * 0.1, w: cw, h: ch
     };
     var tx = this.title.x, ty = this.title.y;
     this.bloodTips = tips.map(function (p) { return { x: p.x + tx, y: p.y + ty, r: Math.max(1.5, p.r * 1.6) }; });

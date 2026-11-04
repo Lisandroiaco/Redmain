@@ -26,7 +26,7 @@
         <div class="seg" data-opt="quality"><button data-v="baja">Baja</button><button data-v="media">Media</button><button data-v="alta">Alta</button></div>
       </div>
       <button id="settingsBack" class="btn">Volver</button>
-      <p class="credits">Red Main · Demo 0.1 — un juego de Ojo Rojo Games</p>
+      <p class="credits">Red Main · Demo 0.2 — un juego de Ojo Rojo Games</p>
     </div>
   </div>
 
@@ -38,6 +38,49 @@
     </div>
   </div>
 
+  <div id="story" class="panel" role="dialog" aria-labelledby="storyTitle">
+    <div class="box wide">
+      <div class="head"><button class="icon-btn back" data-close aria-label="Volver">◄</button><h2 id="storyTitle">Modo Historia</h2><span class="sub">Elegí una ranura de guardado</span></div>
+      <div id="slots" class="slots"></div>
+    </div>
+  </div>
+
+  <div id="solo" class="panel" role="dialog" aria-labelledby="soloTitle">
+    <div class="box wide">
+      <div class="head"><button class="icon-btn back" data-close aria-label="Volver">◄</button><h2 id="soloTitle">1 Jugador</h2><span class="sub">Elegí un nivel</span></div>
+      <div id="levels" class="levels"></div>
+      <button id="soloPlay" class="btn">Jugar nivel 1</button>
+    </div>
+  </div>
+
+  <div id="online" class="panel" role="dialog" aria-labelledby="onlineTitle">
+    <div class="box wide">
+      <div class="head"><button class="icon-btn back" data-close aria-label="Volver">◄</button><h2 id="onlineTitle" class="gold">Online</h2><span id="netStatus" class="net-status"></span></div>
+      <div id="netBrowser">
+        <div class="net-row">
+          <label class="field inline">Tu nombre <input id="netName" maxlength="14" autocomplete="off"></label>
+          <div class="net-actions"><button id="netRefresh" class="btn sm ghost">⟳ Actualizar</button><button id="netCreate" class="btn sm gold">+ Crear sala</button></div>
+        </div>
+        <div class="servers">
+          <div class="srv srv-head"><span>Sala</span><span>Anfitrión</span><span>Jugadores</span><span>Ping</span><span></span></div>
+          <div id="srvList"></div>
+        </div>
+        <p class="hint">Servidores activos: las salas se conectan directo entre celulares (P2P). Hasta 4 jugadores por sala.</p>
+      </div>
+      <div id="netLobby" hidden>
+        <div class="lobby-top"><div><div class="lobby-name" id="lobbyName"></div><div class="lobby-sub" id="lobbySub"></div></div><button id="lobbyLeave" class="btn sm ghost">Salir de la sala</button></div>
+        <div class="lobby-grid">
+          <ul id="lobbyPlayers" class="players"></ul>
+          <div class="chat"><div id="chatLog" class="chat-log"></div>
+            <form id="chatForm"><input id="chatInput" maxlength="120" placeholder="Escribí algo…" autocomplete="off"><button class="btn sm" aria-label="Enviar">➤</button></form>
+          </div>
+        </div>
+        <div class="lobby-actions"><button id="lobbyReady" class="btn sm ghost">Estoy listo</button><button id="lobbyStart" class="btn sm gold">Iniciar partida</button></div>
+      </div>
+      <div id="netToast" class="toast"></div>
+    </div>
+  </div>
+
   <div id="bye" class="panel"><p>Hasta la próxima noche…</p></div>
 
   <script src="js/util.js"></script>
@@ -45,6 +88,11 @@
   <script src="js/scene.js"></script>
   <script src="js/menu.js"></script>
   <script src="js/intro.js"></script>
+  <script src="js/arts.js"></script>
+  <script src="js/loader.js"></script>
+  <script src="js/modes.js"></script>
+  <script src="js/screens.js"></script>
+  <script src="js/online.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

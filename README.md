@@ -1,6 +1,6 @@
 # Red Main — Ojo Rojo Games
 
-Juego de terror para celular (Android). Esta primera entrega trae la **intro del estudio** y el **menú principal**.
+Juego de terror para celular (Android). Demo 0.2: **intro del estudio**, **menú principal** y la pantalla de **JUGAR** con tres modos (Historia, 1 Jugador y Online).
 
 | Intro "Ojo Rojo Games" | Menú (JUGAR resaltado) |
 |---|---|
@@ -20,11 +20,29 @@ Juego de terror para celular (Android). Esta primera entrega trae la **intro del
 - **Audio 100% sintetizado** (WebAudio, sin archivos): lluvia, viento, truenos, drone oscuro y una melodía generativa de caja de música.
 - Botón **atrás** de Android: cierra paneles, vuelve al menú o pide confirmación para salir.
 
+## Pantalla de JUGAR (demo 0.2)
+
+| Selección de modo | Cargador propio |
+|---|---|
+| ![modos](docs/modes.jpg) | ![cargando](docs/loading.jpg) |
+| **Historia — 3 ranuras** | **1 Jugador — 4 niveles** |
+| ![historia](docs/historia.jpg) | ![niveles](docs/niveles.jpg) |
+| **Online — servidores activos** | **Online — sala con chat** |
+| ![online](docs/online.jpg) | ![lobby](docs/lobby.jpg) |
+
+- **Cargador en el lugar**: al tocar JUGAR la escena no cambia. Los botones se desvanecen y en la esquina gira un ojo rojo con un anillo de gotas de sangre mientras se pre-renderizan de verdad las tarjetas y las miniaturas, repartidas entre frames para que no se trabe. Recién después aparecen los modos.
+- **Selección de modo** (basada en el boceto): tarjetas ilustradas de HISTORIA, 1 JUGADOR (con la fogata animada) y ONLINE. La lluvia también choca contra ellas.
+- **Modo Historia**: 3 ranuras de guardado (en el dispositivo). Cada partida nueva pide nombre y dificultad (Normal/Pesadilla). Cada ranura muestra capítulo, progreso, tiempo jugado y fecha, se puede continuar y se puede borrar (con confirmación). El progreso avanza solo mientras jugás la demo.
+- **1 Jugador**: 4 niveles (El Claro, Pantano de Ceniza, La Ciudad Ahogada, Ojo de la Tormenta), cada uno con miniatura, dificultad en calaveras, descripción y récord.
+- **Online (beta, funciona de verdad)**: buscador de salas activas con jugadores y ping, crear sala, entrar, lista de jugadores, chat, botón "Estoy listo" y el anfitrión inicia la partida para todos. Usa **PeerJS**: los celulares se conectan directo (P2P) y el servidor público de PeerJS solo los presenta, así que no hace falta montar un servidor propio. Hasta 8 salas a la vez, 4 jugadores por sala.
+  - Para usar un servidor PeerJS propio: abrí el juego con `?peer=https://tu-servidor:443/` o guardá `{"url":"https://tu-servidor/"}` en `localStorage["redmain.peer"]`.
+
 ## Estructura
 
 ```
 ./
-  web/        el juego (HTML5 Canvas, sin dependencias); se puede abrir index.html en el navegador
+  web/        el juego (HTML5 Canvas); se puede abrir index.html en el navegador
+    lib/      PeerJS 1.5.5 (MIT) para el online
   android/    proyecto Android nativo (WebView a pantalla completa, horizontal, inmersivo)
   tools/      make-icons.cjs: genera los íconos de la app
   docs/       capturas
@@ -48,4 +66,4 @@ El APK se firma con una clave **demo** incluida en `android/keystore/redmain-dem
 
 ## Créditos
 
-Fuentes Cinzel, Cinzel Decorative y Metal Mania bajo SIL Open Font License (ver `web/fonts/OFL.txt`).
+PeerJS (MIT, ver `web/lib/PEERJS-LICENSE.txt`). Fuentes Cinzel, Cinzel Decorative y Metal Mania bajo SIL Open Font License (ver `web/fonts/OFL.txt`).

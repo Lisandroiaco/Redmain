@@ -6,22 +6,31 @@
   var W = 0, H = 0, dpr = 1, profile;
   var scene = new RM.Scene();
   var menu = new RM.Menu();
+  var modes = new RM.Modes();
+  var loader = new RM.Loader();
   var intro = null;
-  var state = 'boot';     // boot → tap? → intro → menu ⇄ play
-  var fade = 1;           // cortina negra (1 = negro total)
-  var fadeTarget = 1;
-  var fadeSpeed = 1;
-  var stateT = 0;
-  var last = 0;
-  var running = true;
-  var built = false;
+  // Estados: boot → tap? → intro → menu → loading → modes ⇄ (paneles) → loading → play
+  var state = 'boot';
+  var view = 'menu';          // qué letrero/botones se ven: 'menu' o 'modes'
+  var menuFade = 1, buttonsFade = 1;
+  var fade = 1, fadeTarget = 1, fadeSpeed = 1;
+  var stateT = 0, last = 0, running = true, built = false;
+  var play = null;            // contexto de la partida en curso
+  var saveAcc = 0;
 
   var $ = function (id) { return document.getElementById(id); };
-  var panels = { settings: $('settings'), confirm: $('confirm') };
+  var panels = { settings: $('settings'), confirm: $('confirm'), story: $('story'), solo: $('solo'), online: $('online') };
 
   function setState(s) { state = s; stateT = 0; }
 
   /* ---------- Tamaño ---------- */
+
+  function applyMask(src) {
+    var m = src.mask || src.buildMask();
+    scene.setMask(m.data, m.w, m.h, m.rect);
+    scene.setBloodTips(src.bloodTips || []);
+    scene.runners.length = 0;
+  }
 
   function resize() {
     profile = RM.qualityProfile();
@@ -33,9 +42,9 @@
     canvas.style.height = H + 'px';
     scene.resize(W, H, dpr, profile);
     menu.build(W, H, dpr);
-    var m = menu.buildMask();
-    scene.setMask(m.data, m.w, m.h, m.rect);
-    scene.setBloodTips(menu.bloodTips);
+    menu.mask = menu.buildMask();
+    if (modes.built) modes.buildNow(W, H, dpr);
+    applyMask(view === 'modes' ? modes : menu);
     built = true;
   }
 
@@ -56,6 +65,7 @@
     stateT += dt;
     fade += (fadeTarget - fade) * Math.min(1, dt * fadeSpeed * 3);
     RM.audio.tick();
+    loader.update(dt);
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
@@ -67,26 +77,29 @@
       return;
     }
 
-    var showMenu = state === 'menu' || state === 'toPlay';
-    scene.maskOn = showMenu;
-    scene.hotRect = state === 'menu' ? menu.hotRect() : null;
+    var playing = state === 'play';
+    menuFade += (((view === 'menu' && !playing) ? 1 : 0) - menuFade) * Math.min(1, dt * 5);
+    buttonsFade += ((state === 'menu' ? 1 : 0) - buttonsFade) * Math.min(1, dt * 5);
+    scene.maskOn = !playing;
+    scene.hotRect = state === 'menu' ? menu.hotRect() : (state === 'modes' && !openName ? modes.hotRect() : null);
     scene.update(dt);
     menu.update(dt);
+    modes.update(dt, view === 'modes' && !playing);
 
     ctx.save();
     if (scene.shake > 0.1) ctx.translate(RM.rand(-1, 1) * scene.shake, RM.rand(-1, 1) * scene.shake);
     scene.drawBack(ctx);
-    var menuAlpha = state === 'toPlay' ? Math.max(0, 1 - stateT * 1.2) : showMenu ? 1 : 0;
-    if (menuAlpha > 0) {
-      menu.drawTitle(ctx, scene.flash, menuAlpha);
-      menu.drawButtons(ctx, scene.flash, menuAlpha);
+    if (menuFade > 0.01) {
+      menu.drawTitle(ctx, scene.flash, menuFade);
+      menu.drawButtons(ctx, scene.flash, menuFade * buttonsFade);
     }
+    modes.draw(ctx, scene.flash, 1);
     scene.drawFront(ctx, dt);
     ctx.restore();
     scene.drawPost(ctx);
 
-    if (state === 'toPlay' && stateT > 1.1) { setState('play'); fadeTarget = 0.35; fadeSpeed = 0.6; }
-    if (state === 'play') drawChapter();
+    if (playing) { drawPlay(dt); }
+    loader.draw(ctx, W, H);
 
     if (fade > 0.003) {
       ctx.fillStyle = 'rgba(0,0,0,' + Math.min(1, fade) + ')';
@@ -109,9 +122,37 @@
     ctx.textAlign = 'left';
   }
 
-  function drawChapter() {
-    var a = RM.smooth(0, 1.4, stateT);
+  function fmtClock(s) {
+    s = Math.floor(s);
+    return (s / 60 | 0) + ':' + ('0' + s % 60).slice(-2);
+  }
+
+  // Pantalla de partida (demo): cambia según el modo elegido.
+  function drawPlay(dt) {
+    var a = RM.smooth(0, 1.2, stateT);
     var fs = Math.min(H * 0.11, W * 0.09);
+    var big, sub, lines = [], accent = '#d01a12';
+    if (play.mode === 'story') {
+      saveAcc += dt;
+      if (saveAcc > 1) { RM.Screens.tickSave(play.slot, saveAcc); saveAcc = 0; }
+      var s = RM.Screens.saves()[play.slot] || { chapter: 1, progress: 0, name: '' };
+      big = 'CAPÍTULO ' + ['I', 'II', 'III', 'IV', 'V'][(s.chapter - 1) % 5];
+      sub = RM.Screens.chapterName(s.chapter);
+      lines.push(s.name + ' camina bajo la lluvia… (' + Math.floor(s.progress) + '%)');
+      lines.push('Ranura ' + (play.slot + 1) + ' · guardado automático');
+    } else if (play.mode === 'solo') {
+      var lv = RM.Art.LEVELS[play.level - 1];
+      big = 'NIVEL ' + lv.n;
+      sub = lv.name;
+      lines.push(lv.desc);
+      lines.push('Sobreviviste ' + fmtClock(stateT));
+      if (lv.n === 4) accent = '#ff2a1a';
+    } else {
+      big = 'PARTIDA ONLINE';
+      sub = play.room;
+      lines.push(play.players.join('  ·  '));
+      lines.push('Conectados por P2P');
+    }
     ctx.save();
     ctx.globalAlpha = 0.7 * a;
     ctx.fillStyle = '#000';
@@ -119,21 +160,24 @@
     ctx.globalAlpha = a;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.shadowColor = 'rgba(255,20,0,0.8)'; ctx.shadowBlur = fs * 0.4;
-    ctx.fillStyle = '#d01a12';
+    ctx.fillStyle = accent;
     ctx.font = fs + 'px "Metal Mania", serif';
-    ctx.fillText('CAPÍTULO I', W / 2, H * 0.4);
+    ctx.fillText(big, W / 2, H * 0.33);
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#d8ccd8';
-    ctx.font = '400 ' + (fs * 0.32) + 'px "Cinzel", serif';
-    ctx.fillText('La lluvia no se detiene', W / 2, H * 0.4 + fs * 0.85);
+    ctx.font = '700 ' + (fs * 0.36) + 'px "Cinzel", serif';
+    ctx.fillText(sub, W / 2, H * 0.33 + fs * 0.85);
+    ctx.font = '400 ' + (fs * 0.22) + 'px "Cinzel", serif';
+    ctx.fillStyle = '#b9a9b9';
+    lines.forEach(function (l, i) { ctx.fillText(l, W / 2, H * 0.55 + i * fs * 0.38); });
     ctx.globalAlpha = a * (0.55 + 0.45 * Math.sin(stateT * 3));
     ctx.fillStyle = '#ff5a2a';
-    ctx.font = '700 ' + (fs * 0.28) + 'px "Cinzel", serif';
-    ctx.fillText('PRÓXIMAMENTE', W / 2, H * 0.68);
+    ctx.font = '700 ' + (fs * 0.26) + 'px "Cinzel", serif';
+    ctx.fillText('DEMO · LA JUGABILIDAD LLEGA PRONTO', W / 2, H * 0.75);
     ctx.globalAlpha = a * 0.5;
     ctx.fillStyle = '#bbb';
     ctx.font = '400 ' + (fs * 0.2) + 'px "Cinzel", serif';
-    ctx.fillText('Tocá para volver al menú', W / 2, H * 0.78);
+    ctx.fillText('Tocá para volver', W / 2, H * 0.84);
     ctx.restore();
   }
 
@@ -149,10 +193,32 @@
 
   function enterMenu() {
     setState('menu');
+    view = 'menu';
     fade = 1; fadeTarget = 0; fadeSpeed = 0.5;
     RM.audio.startAmbience();
     RM.audio.startMusic();
     scene.events.push({ at: scene.t + 0.5, fn: function () { if (RM.settings.thunder) scene.strike(true); } });
+  }
+
+  // Carga en el lugar (sin cambiar de escena) las tarjetas y miniaturas de los modos.
+  function goModes() {
+    setState('loading');
+    var tasks = [];
+    if (!modes.built) tasks = tasks.concat(modes.tasks(W, H, dpr));
+    if (!RM.Screens.thumbs.story) tasks = tasks.concat(RM.Screens.storyTasks(), RM.Screens.soloTasks());
+    loader.start(tasks, function () {
+      view = 'modes';
+      modes.appear = 0;
+      applyMask(modes);
+      setState('modes');
+    }, { minTime: tasks.length ? 1.8 : 0.6 });
+  }
+
+  function goMenu() {
+    RM.audio.back();
+    view = 'menu';
+    applyMask(menu);
+    setState('menu');
   }
 
   function activate(item) {
@@ -161,7 +227,7 @@
       RM.audio.select();
       RM.vibrate([25]);
       scene.strike(true);
-      setState('toPlay');
+      goModes();
     } else if (item.id === 'exit') {
       RM.audio.select();
       RM.vibrate([15]);
@@ -170,14 +236,55 @@
       RM.audio.hover();
       RM.vibrate([10]);
       openPanel('settings');
+    } else if (item.id === 'back') {
+      goMenu();
+    } else if (item.id === 'story') {
+      RM.audio.select(); RM.vibrate([20]);
+      RM.Screens.renderStory();
+      openPanel('story');
+    } else if (item.id === 'solo') {
+      RM.audio.select(); RM.vibrate([20]);
+      RM.Screens.renderSolo();
+      openPanel('solo');
+    } else if (item.id === 'online') {
+      RM.audio.select(); RM.vibrate([20]);
+      setState('loading');
+      loader.start([function () { return RM.Online.connect().catch(function () { /* se muestra en el panel */ }); }], function () {
+        setState('modes');
+        openPanel('online');
+        RM.Online.UI.open();
+      }, { minTime: 1.1, label: 'CONECTANDO' });
     }
   }
 
-  function backToMenu() {
-    RM.audio.back();
-    setState('menu');
-    fadeTarget = 0; fadeSpeed = 1;
+  // Arranca una partida con pantalla de carga.
+  function startPlay(ctxPlay) {
+    closePanels(true);
+    setState('loading');
+    scene.strike(true);
+    loader.start([function () { saveAcc = 0; }], function () {
+      play = ctxPlay;
+      setState('play');
+    }, { minTime: 2.2, label: ctxPlay.mode === 'online' ? 'SINCRONIZANDO' : 'CARGANDO' });
   }
+
+  function endPlay() {
+    if (play && play.mode === 'story' && saveAcc > 0) RM.Screens.tickSave(play.slot, saveAcc);
+    if (play && play.mode === 'solo') RM.Screens.saveRecord(play.level, stateT);
+    var back = play ? play.mode : null;
+    play = null;
+    RM.audio.back();
+    setState('modes');
+    if (back === 'story') { RM.Screens.renderStory(); openPanel('story'); }
+    else if (back === 'solo') { RM.Screens.renderSolo(); openPanel('solo'); }
+    else if (back === 'online') { RM.Online.endMatch(); openPanel('online'); RM.Online.UI.open(); }
+  }
+
+  RM.Screens.bindStory(function (slot) { startPlay({ mode: 'story', slot: slot }); });
+  RM.Screens.bindSolo(function (n) { startPlay({ mode: 'solo', level: n }); });
+  RM.Online.UI.bind(function (L) {
+    startPlay({ mode: 'online', room: L.room.name, players: L.players.map(function (p) { return p.name; }) });
+  });
 
   /* ---------- Paneles DOM ---------- */
 
@@ -186,15 +293,21 @@
     closePanels(true);
     openName = name;
     panels[name].classList.add('open');
-    menu.hover = null; menu.pressed = null;
+    menu.hover = menu.pressed = null;
+    modes.hover = modes.pressed = null;
     if (name === 'settings') syncSettingsUI();
   }
   function closePanels(silent) {
     if (!openName) return;
+    if (openName === 'online') RM.Online.UI.close();
     panels[openName].classList.remove('open');
     openName = null;
     if (!silent) RM.audio.back();
   }
+
+  document.querySelectorAll('[data-close]').forEach(function (b) {
+    b.addEventListener('click', function () { closePanels(); });
+  });
 
   function syncSettingsUI() {
     var s = RM.settings;
@@ -204,9 +317,7 @@
     document.querySelectorAll('[data-opt]').forEach(function (grp) {
       var key = grp.getAttribute('data-opt');
       grp.querySelectorAll('button').forEach(function (b) {
-        var v = b.getAttribute('data-v');
-        var cur = String(s[key]);
-        b.classList.toggle('on', v === cur);
+        b.classList.toggle('on', b.getAttribute('data-v') === String(s[key]));
       });
     });
   }
@@ -244,6 +355,7 @@
   $('exitYes').addEventListener('click', function () {
     RM.audio.select();
     closePanels(true);
+    RM.Online.leave();
     fadeTarget = 1; fadeSpeed = 1.2;
     setTimeout(function () {
       if (RM.native && RM.native.exit) { RM.native.exit(); return; }
@@ -258,55 +370,66 @@
 
   /* ---------- Entrada ---------- */
 
-  function pos(e) { return { x: e.clientX, y: e.clientY }; }
+  function target() {
+    if (openName) return null;
+    return state === 'menu' ? menu : state === 'modes' ? modes : null;
+  }
 
   canvas.addEventListener('pointerdown', function (e) {
     e.preventDefault();
     if (state === 'tap') { startIntro(); return; }
     if (state === 'intro') { intro.skip(); return; }
-    if (state === 'play' && stateT > 0.8) { backToMenu(); return; }
-    if (state !== 'menu' || openName) return;
-    var p = pos(e), it = menu.hitTest(p.x, p.y);
-    menu.pressed = it;
-    if (it && it !== menu.hover) { RM.audio.hover(); RM.vibrate([8]); }
-    menu.hover = it;
+    if (state === 'play' && stateT > 0.8) { endPlay(); return; }
+    var T = target();
+    if (!T) return;
+    var it = T.hitTest(e.clientX, e.clientY);
+    T.pressed = it;
+    if (it && it !== T.hover) { RM.audio.hover(); RM.vibrate([8]); }
+    T.hover = it;
   });
   canvas.addEventListener('pointermove', function (e) {
-    if (state !== 'menu' || openName) return;
-    var p = pos(e), it = menu.hitTest(p.x, p.y);
-    if (e.pointerType === 'mouse' || menu.pressed) {
-      if (it && it !== menu.hover) RM.audio.hover();
-      menu.hover = it;
-    }
     if (e.pointerType === 'mouse') {
-      scene.tiltTarget.x = (p.x / W - 0.5) * 2;
-      scene.tiltTarget.y = (p.y / H - 0.5) * 2;
+      scene.tiltTarget.x = (e.clientX / W - 0.5) * 2;
+      scene.tiltTarget.y = (e.clientY / H - 0.5) * 2;
+    }
+    var T = target();
+    if (!T) return;
+    var it = T.hitTest(e.clientX, e.clientY);
+    if (e.pointerType === 'mouse' || T.pressed) {
+      if (it && it !== T.hover) RM.audio.hover();
+      T.hover = it;
     }
   });
   canvas.addEventListener('pointerup', function (e) {
-    if (state !== 'menu' || openName) return;
-    var p = pos(e), it = menu.hitTest(p.x, p.y);
-    var pressed = menu.pressed;
-    menu.pressed = null;
-    if (e.pointerType !== 'mouse') menu.hover = null;
+    var T = target();
+    if (!T) return;
+    var it = T.hitTest(e.clientX, e.clientY);
+    var pressed = T.pressed;
+    T.pressed = null;
+    if (e.pointerType !== 'mouse') T.hover = null;
     if (it && it === pressed) activate(it);
   });
-  canvas.addEventListener('pointercancel', function () { menu.pressed = null; menu.hover = null; });
+  canvas.addEventListener('pointercancel', function () {
+    menu.pressed = menu.hover = modes.pressed = modes.hover = null;
+  });
 
   window.addEventListener('keydown', function (e) {
+    if (e.target && (e.target.tagName === 'INPUT')) return;
     if (state === 'tap' && (e.key === 'Enter' || e.key === ' ')) { startIntro(); return; }
     if (state === 'intro') { intro.skip(); return; }
     if (e.key === 'Escape' || e.key === 'Backspace') { RM.onBack(); return; }
-    if (state === 'play') { backToMenu(); return; }
-    if (state !== 'menu' || openName) return;
-    var list = menu.items.concat([menu.gear]);
-    var i = list.indexOf(menu.hover);
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      i = e.key === 'ArrowDown' ? (i + 1) % list.length : (i <= 0 ? list.length - 1 : i - 1);
-      menu.hover = list[i];
+    if (state === 'play') { endPlay(); return; }
+    var T = target();
+    if (!T) return;
+    var list = T === menu ? menu.items.concat([menu.gear]) : modes.cards.concat([modes.back]);
+    var i = list.indexOf(T.hover);
+    var next = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+    if (next) {
+      i = (i + next + list.length) % list.length;
+      T.hover = list[i];
       RM.audio.hover();
     } else if (e.key === 'Enter' || e.key === ' ') {
-      activate(menu.hover || menu.items[0]);
+      activate(T.hover || list[0]);
     }
   });
 
@@ -331,7 +454,9 @@
   // Devuelve true si el juego manejó el botón "atrás".
   RM.onBack = function () {
     if (openName) { closePanels(); return true; }
-    if (state === 'play' || state === 'toPlay') { backToMenu(); return true; }
+    if (state === 'loading') return true;
+    if (state === 'play') { endPlay(); return true; }
+    if (state === 'modes') { goMenu(); return true; }
     if (state === 'intro') { intro.skip(); return true; }
     if (state === 'menu') { openPanel('confirm'); RM.audio.back(); return true; }
     return false;
@@ -359,6 +484,7 @@
       requestAnimationFrame(frame);
     });
   }
-  RM.debug = { scene: scene, menu: menu };
+
+  RM.debug = { scene: scene, menu: menu, modes: modes, loader: loader, activate: activate, state: function () { return state; } };
   boot();
 })(window.RM);
