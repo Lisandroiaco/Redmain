@@ -151,7 +151,7 @@
         var n = free.shift();
         var hp = new window.Peer(PREFIX + n, peerOptions());
         hp.on('open', function () {
-          N.hostPeer = hp;
+          N.hostPeer = hp; N.backend = 'peer';
           N.chat = [];
           N.lobby = {
             isHost: true, me: 'host', started: false,
@@ -197,6 +197,11 @@
       }
       pl = L.players.filter(function (p) { return p.id === conn.peer; })[0];
       if (!pl) return;
+      if (d.t === 'p' || d.t === 'req') {
+        N.gameFns.forEach(function (f) { f(d); });
+        if (d.t === 'p') Object.keys(N.conns).forEach(function (k) { if (k !== conn.peer) try { N.conns[k].send(d); } catch (e) { /* caída */ } });
+        return;
+      }
       if (d.t === 'chat') {
         var text = clean(d.text, 120);
         if (!text) return;
@@ -215,6 +220,7 @@
       L.players = L.players.filter(function (p) { return p.id !== conn.peer; });
       if (pl) broadcast({ t: 'chat', m: addChat('', pl.name + ' se fue.', true) });
       pushState();
+      N.leaveFns.forEach(function (f) { f(conn.peer); });
     });
   }
 
@@ -222,6 +228,7 @@
 
   N.join = function (room, myName) {
     return new Promise(function (res, rej) {
+      N.backend = 'peer';
       var conn = N.peer.connect(room.id, { reliable: true, metadata: { kind: 'join' } });
       var timer = setTimeout(function () { rej(new Error('No respondió la sala.')); try { conn.close(); } catch (e) { /* nada */ } }, 8000);
       N.conn = conn;
@@ -229,6 +236,7 @@
       conn.on('open', function () { conn.send({ t: 'join', name: myName }); });
       conn.on('data', function (d) {
         if (!d) return;
+        if (d.t === 'p' || d.t === 'w') { N.gameFns.forEach(function (f) { f(d); }); return; }
         if (d.t === 'denied') { clearTimeout(timer); rej(new Error(d.reason)); return; }
         if (d.t === 'welcome') {
           clearTimeout(timer);
@@ -256,6 +264,7 @@
   /* ---------- Acciones en la sala ---------- */
 
   N.sendChat = function (text) {
+    if (N.backend === 'lan') return RM.LAN.sendChat(text);
     text = clean(text, 120);
     if (!text || !N.lobby) return;
     if (N.lobby.isHost) broadcast({ t: 'chat', m: addChat(N.lobby.players[0].name, text) });
@@ -263,16 +272,19 @@
   };
 
   N.setReady = function (v) {
+    if (N.backend === 'lan') return RM.LAN.setReady(v);
     if (!N.lobby || N.lobby.isHost) return;
     N.conn.send({ t: 'ready', v: v });
   };
 
   N.canStart = function () {
+    if (N.backend === 'lan') return RM.LAN.canStart();
     var L = N.lobby;
     return L && L.isHost && L.players.every(function (p) { return p.ready; });
   };
 
   N.start = function () {
+    if (N.backend === 'lan') return RM.LAN.start();
     if (!N.canStart()) return false;
     N.lobby.started = true;
     pushState();
@@ -283,6 +295,7 @@
 
   // Al volver de la partida, la sala se reabre para que puedan entrar otros.
   N.endMatch = function () {
+    if (N.backend === 'lan') return RM.LAN.endMatch();
     var L = N.lobby;
     if (!L) return;
     L.started = false;
@@ -290,6 +303,7 @@
   };
 
   N.leave = function () {
+    if (N.backend === 'lan') { RM.LAN.leave(); N.backend = 'peer'; return; }
     N.leaving = true;
     if (N.pingTimer) { clearInterval(N.pingTimer); N.pingTimer = null; }
     if (N.hostPeer) { try { N.hostPeer.destroy(); } catch (e) { /* nada */ } N.hostPeer = null; }
@@ -301,13 +315,34 @@
   };
 
   N.MAX_PLAYERS = MAX_PLAYERS;
+  N._emit = emit;
+  N._addChat = addChat;
+  N.backend = 'peer';
+  N.gameFns = []; N.leaveFns = [];
+
+  // Canal para el nivel cooperativo (por internet). En red local lo da RM.LAN.
+  N.gameNet = function () {
+    if (N.backend === 'lan') return RM.LAN.gameNet();
+    var L = N.lobby;
+    N.gameFns = []; N.leaveFns = [];
+    return {
+      isHost: L.isHost, myId: L.me,
+      players: L.players.map(function (p) { return { id: p.id, name: p.name }; }),
+      send: function (m) { if (L.isHost) broadcast(m); else if (N.conn) N.conn.send(m); },
+      on: function (f) { N.gameFns.push(f); },
+      onLeave: function (f) { N.leaveFns.push(f); }
+    };
+  };
 
   /* ---------- Interfaz ---------- */
 
   var UI = {};
   var autoTimer = null;
 
+  UI.tab = 'lan';
+
   UI.statusText = function () {
+    if (UI.tab === 'lan') return '<i class="dot on"></i>Red local' + (N.backend === 'lan' && N.lobby && N.lobby.isHost ? ' · hosteando' : '');
     if (N.status === 'on') return '<i class="dot on"></i>Conectado';
     if (N.status === 'connecting') return '<i class="dot wait"></i>Conectando…';
     return '<i class="dot off"></i>Sin conexión';
@@ -346,7 +381,8 @@
     var L = N.lobby;
     if (!L) return;
     $('lobbyName').textContent = L.room.name;
-    $('lobbySub').textContent = (L.isHost ? 'Sos el anfitrión' : 'Anfitrión: ' + L.room.hostName) + ' · ' + L.players.length + '/' + MAX_PLAYERS + ' jugadores';
+    var where = L.isHost && L.room.ips && L.room.ips.length ? ' · Conectarse a: ' + L.room.ips.join(' / ') : '';
+    $('lobbySub').textContent = (L.isHost ? 'Sos el anfitrión' : 'Anfitrión: ' + L.room.hostName) + ' · ' + L.players.length + '/' + MAX_PLAYERS + ' jugadores' + where;
     var rows = [];
     for (var i = 0; i < MAX_PLAYERS; i++) {
       var p = L.players[i];
@@ -377,8 +413,11 @@
   };
 
   UI.showLobby = function (on) {
-    $('netBrowser').hidden = on;
+    $('netTop').hidden = on;
+    $('lanBrowser').hidden = on || UI.tab !== 'lan';
+    $('netBrowser').hidden = on || UI.tab !== 'net';
     $('netLobby').hidden = !on;
+    UI.renderStatus();
     if (on) { $('chatLog').innerHTML = ''; N.chat.forEach(UI.appendChat); UI.renderLobby(); }
   };
 
@@ -394,13 +433,48 @@
     return N.scan().then(function () { UI.renderRooms(false); });
   };
 
+  /* --- Red local --- */
+  UI.lanRooms = [];
+  UI.renderLan = function (searching) {
+    var list = $('lanList');
+    if (searching && !UI.lanRooms.length) { list.innerHTML = '<div class="srv-empty"><span class="spin"></span> Buscando partidas en tu red…</div>'; return; }
+    if (!UI.lanRooms.length) {
+      list.innerHTML = '<div class="srv-empty">No se encontraron partidas en esta red.<br>Tocá <b>Hostear partida</b> en un celu y <b>Buscar</b> en el otro, o conectate por IP.</div>';
+      return;
+    }
+    list.innerHTML = UI.lanRooms.map(function (r) {
+      return '<div class="srv"><span class="srv-name">' + esc(r.name) + '</span><span>' + esc(r.ip) + '</span><span>' + esc(String(r.players)) + '/' + MAX_PLAYERS + '</span><span></span>' +
+        '<span><button class="btn sm" data-lan-ip="' + esc(r.ip) + '">Entrar</button></span></div>';
+    }).join('');
+  };
+  UI.findLan = function () {
+    UI.renderLan(true);
+    return RM.LAN.find().then(function (list) { UI.lanRooms = list; UI.renderLan(false); });
+  };
+  UI.joinLan = function (ip, btn) {
+    RM.audio.select();
+    if (btn) { btn.disabled = true; btn.textContent = 'Entrando…'; }
+    RM.LAN.join(ip, N.setName($('netName').value)).then(function () { UI.showLobby(true); }, function (err) {
+      UI.toast(err.message || 'No se pudo conectar.'); UI.renderLan(false);
+      if (btn) { btn.disabled = false; btn.textContent = 'Conectar'; }
+    });
+  };
+
+  UI.showTab = function (tab) {
+    UI.tab = tab;
+    document.querySelectorAll('#netTabs button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === tab); });
+    UI.showLobby(false);
+    if (tab === 'lan') UI.findLan();
+    else if (N.status === 'on') UI.refresh();
+    else { UI.renderRooms(true); N.connect().then(UI.refresh, function () { UI.renderRooms(false); }); }
+  };
+
   UI.open = function () {
     $('netName').value = N.name();
-    UI.renderStatus();
-    UI.showLobby(!!N.lobby);
-    if (!N.lobby) UI.refresh();
+    if (N.lobby) { UI.showLobby(true); }
+    else UI.showTab(UI.tab);
     clearInterval(autoTimer);
-    autoTimer = setInterval(function () { if (!N.lobby && N.status === 'on') N.scan().then(function () { UI.renderRooms(false); }); }, 9000);
+    autoTimer = setInterval(function () { if (!N.lobby && UI.tab === 'net' && N.status === 'on') N.scan().then(function () { UI.renderRooms(false); }); }, 9000);
   };
   UI.close = function () { clearInterval(autoTimer); };
 
@@ -409,7 +483,23 @@
     N.on('lobby', UI.renderLobby);
     N.on('chat', function (m) { if (!$('netLobby').hidden) UI.appendChat(m); });
     N.on('start', function (L) { onStart(L); });
-    N.on('closed', function (why) { N.leave(); UI.showLobby(false); UI.toast(why); UI.refresh(); });
+    N.on('closed', function (why) { N.leave(); UI.showLobby(false); UI.toast(why); UI.showTab(UI.tab); });
+    $('netTabs').addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      RM.audio.hover(); UI.showTab(b.getAttribute('data-tab'));
+    });
+    $('lanFind').addEventListener('click', function () { RM.audio.hover(); UI.findLan(); });
+    $('lanHost').addEventListener('click', function () {
+      RM.audio.select();
+      var b = $('lanHost'); b.disabled = true;
+      RM.LAN.host(N.setName($('netName').value), $('lanIp').value.trim() || null).then(function () { b.disabled = false; UI.showLobby(true); }, function (err) {
+        b.disabled = false; UI.toast(err.message || 'No se pudo hostear.');
+      });
+    });
+    $('lanJoinIp').addEventListener('click', function () { UI.joinLan($('lanIp').value.trim(), $('lanJoinIp')); });
+    $('lanList').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-lan-ip]'); if (b) UI.joinLan(b.getAttribute('data-lan-ip'), b);
+    });
     $('netName').addEventListener('change', function (e) { e.target.value = N.setName(e.target.value); });
     $('netRefresh').addEventListener('click', function () { RM.audio.hover(); UI.refresh(); });
     $('srvList').addEventListener('click', function (e) {
@@ -437,7 +527,7 @@
         b.disabled = false; UI.toast(err.message === 'full' ? 'Todas las salas están ocupadas.' : 'No se pudo crear la sala.');
       });
     });
-    $('lobbyLeave').addEventListener('click', function () { RM.audio.back(); N.leave(); UI.showLobby(false); UI.refresh(); });
+    $('lobbyLeave').addEventListener('click', function () { RM.audio.back(); N.leave(); UI.showTab(UI.tab); });
     $('lobbyReady').addEventListener('click', function () {
       var L = N.lobby; if (!L) return;
       var meP = L.players.filter(function (p) { return p.id === L.me; })[0];

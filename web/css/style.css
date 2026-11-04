@@ -218,3 +218,8 @@ h2.gold { color: #ffcc00; text-shadow: 0 0 14px rgba(255, 190, 0, .5); }
   .srv > span:nth-child(2), .srv > span:nth-child(4) { display: none; }
 }
 .srv-empty .btn.sm { display: inline-block; margin: 10px auto 0; }
+.tabs button { font-size: 13px; padding: 7px 12px; }
+.tabs button.on { background: linear-gradient(180deg, #ffd23a, #a87800); color: #1a1200; text-shadow: none; }
+.hint-inline { font-size: 11px; letter-spacing: 2px; color: #c9a300; text-transform: uppercase; }
+.ip-row { margin-top: 8px; margin-bottom: 0; }
+.ip-row input { width: 150px; }

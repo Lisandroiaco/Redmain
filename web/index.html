@@ -26,7 +26,7 @@
         <div class="seg" data-opt="quality"><button data-v="baja">Baja</button><button data-v="media">Media</button><button data-v="alta">Alta</button></div>
       </div>
       <button id="settingsBack" class="btn">Volver</button>
-      <p class="credits">Red Main · Demo 0.3 — un juego de Ojo Rojo Games</p>
+      <p class="credits">Red Main · Demo 0.4 — un juego de Ojo Rojo Games</p>
     </div>
   </div>
 
@@ -56,16 +56,32 @@
   <div id="online" class="panel" role="dialog" aria-labelledby="onlineTitle">
     <div class="box wide">
       <div class="head"><button class="icon-btn back" data-close aria-label="Volver">◄</button><h2 id="onlineTitle" class="gold">Online</h2><span id="netStatus" class="net-status"></span></div>
-      <div id="netBrowser">
+      <div id="netTop" class="net-row">
+        <div class="seg tabs" id="netTabs"><button data-tab="lan" class="on">Red local (Wi-Fi)</button><button data-tab="net">Internet (beta)</button></div>
+        <label class="field inline">Tu nombre <input id="netName" maxlength="14" autocomplete="off"></label>
+      </div>
+      <div id="lanBrowser">
         <div class="net-row">
-          <label class="field inline">Tu nombre <input id="netName" maxlength="14" autocomplete="off"></label>
+          <span class="hint-inline">Partidas en tu red</span>
+          <div class="net-actions"><button id="lanFind" class="btn sm ghost">⟳ Buscar en la red</button><button id="lanHost" class="btn sm gold">+ Hostear partida</button></div>
+        </div>
+        <div class="servers">
+          <div class="srv srv-head"><span>Partida</span><span>Dirección</span><span>Jugadores</span><span></span><span></span></div>
+          <div id="lanList"></div>
+        </div>
+        <div class="net-row ip-row"><label class="field inline">Conectar por IP <input id="lanIp" placeholder="192.168.0.10" inputmode="decimal" autocomplete="off"></label><button id="lanJoinIp" class="btn sm">Conectar</button></div>
+        <p class="hint">Sin internet: los celulares tienen que estar en la misma red Wi-Fi (o uno compartiendo hotspot). Hasta 4 jugadores.</p>
+      </div>
+      <div id="netBrowser" hidden>
+        <div class="net-row">
+          <span class="hint-inline">Salas por internet</span>
           <div class="net-actions"><button id="netRefresh" class="btn sm ghost">⟳ Actualizar</button><button id="netCreate" class="btn sm gold">+ Crear sala</button></div>
         </div>
         <div class="servers">
           <div class="srv srv-head"><span>Sala</span><span>Anfitrión</span><span>Jugadores</span><span>Ping</span><span></span></div>
           <div id="srvList"></div>
         </div>
-        <p class="hint">Servidores activos: las salas se conectan directo entre celulares (P2P). Hasta 4 jugadores por sala.</p>
+        <p class="hint">Las salas se conectan directo entre celulares (P2P). Hasta 4 jugadores por sala.</p>
       </div>
       <div id="netLobby" hidden>
         <div class="lobby-top"><div><div class="lobby-name" id="lobbyName"></div><div class="lobby-sub" id="lobbySub"></div></div><button id="lobbyLeave" class="btn sm ghost">Salir de la sala</button></div>
@@ -93,7 +109,9 @@
   <script src="js/modes.js"></script>
   <script src="js/screens.js"></script>
   <script src="js/online.js"></script>
-  <script src="js/game/sprites.js"></script>
+  <script src="js/lan.js"></script>
+  <script src="js/game/art.js"></script>
+  <script src="js/game/hero.js"></script>
   <script src="js/game/castle.js"></script>
   <script src="js/game/level.js"></script>
   <script src="js/main.js"></script>

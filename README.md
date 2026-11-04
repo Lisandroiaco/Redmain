@@ -1,6 +1,6 @@
 # Red Main — Ojo Rojo Games
 
-Juego de terror para celular (Android). Demo 0.3: **intro del estudio**, **menú principal** y la pantalla de **JUGAR** con tres modos (Historia, 1 Jugador y Online).
+Juego de terror para celular (Android). Demo 0.4: **intro del estudio**, **menú principal** y la pantalla de **JUGAR** con tres modos (Historia, 1 Jugador y Online).
 
 | Intro "Ojo Rojo Games" | Menú (JUGAR resaltado) |
 |---|---|
@@ -37,23 +37,38 @@ Juego de terror para celular (Android). Demo 0.3: **intro del estudio**, **menú
 - **Online (beta, funciona de verdad)**: buscador de salas activas con jugadores y ping, crear sala, entrar, lista de jugadores, chat, botón "Estoy listo" y el anfitrión inicia la partida para todos. Usa **PeerJS**: los celulares se conectan directo (P2P) y el servidor público de PeerJS solo los presenta, así que no hace falta montar un servidor propio. Hasta 8 salas a la vez, 4 jugadores por sala.
   - Para usar un servidor PeerJS propio: abrí el juego con `?peer=https://tu-servidor:443/` o guardá `{"url":"https://tu-servidor/"}` en `localStorage["redmain.peer"]`.
 
-## Nivel 1 jugable — El Castillo del Terror (demo 0.3)
+## Nivel 1 — El Castillo del Terror (demo 0.4)
 
-| Inicio en el vestíbulo | Forjando en la herrería |
+| Establos | Puerta de la cripta |
 |---|---|
-| ![inicio](docs/nivel1-inicio.jpg) | ![forja](docs/nivel1-forja.jpg) |
+| ![establos](docs/nivel1-establos.jpg) | ![cripta](docs/nivel1-cripta.jpg) |
 
-**Mapa completo** (9 salas: Biblioteca, Salón del Trono, Capilla, Cocina, Patio Interior, Alcoba de la Dama, Herrería, Vestíbulo y Cripta):
+**Mapa completo** (17 salas, 80×66 tiles): Biblioteca, Galería de Retratos, Capilla, Observatorio, Salón del Trono, Cocina, Gran Comedor, Bodega de Vinos, Patio Interior, Cuartel de Sirvientes, Alcoba de la Dama, Mazmorras, Herrería, Armería, Vestíbulo, Cripta y Establos.
 
-![mapa](docs/mapa-castillo.png)
+![mapa](docs/mapa-castillo.jpg)
 
-- **Vista 2D desde arriba** al estilo de los survival horror 2D de celular: pixel art, oscuridad total con farol propio, antorchas, velas y chimeneas que titilan, y lluvia con relámpagos en el patio (adentro se oye la tormenta apagada).
-- **Protagonista** (pixel art generado por código): hombre grande con barba, lentes, pelo corto y remera. Tiene animaciones de **caminar, correr y agacharse** en 4 direcciones ([hoja de sprites](docs/protagonista.png)).
-- **Controles de celu**: joystick a la izquierda (aparece donde apoyás el dedo), botones **ACCIÓN** (cambia a AGARRAR / LEER / FORJAR / ABRIR según lo que tengas cerca), **CORRER** y **AGACHAR**, y pausa. Correr gasta estamina; agachado vas lento y tus pasos casi no se oyen.
-- **Teclado** (navegador): flechas o WASD, R correr, C agacharse, E o espacio acción, Esc pausa.
-- **Objetivo**: juntar los 5 materiales (2 lingotes de hierro, carbón, clavos y el martillo del herrero), **forjar la herradura** en el yunque de la Herrería y usarla en el **portón** del Vestíbulo para escapar. Se guarda el mejor tiempo.
-- **Colisiones** contra muros y muebles. Hay 4 notas para leer con la historia de la Dama Blanca, y la Dama aparece en dos momentos con guion fijo (un susto al juntar el segundo material y otro en el espejo de la alcoba). **Todavía no te persigue**: eso viene después.
-- El nivel se carga con el cargador propio (mapa, muebles, sprites y luces) antes de entrar, así no se traba.
+- **Arte vectorial** (sin píxeles): personaje, pisos, muros, muebles y objetos dibujados con curvas, degradés y contornos suaves, pre-renderizados a la resolución de cada pantalla.
+- **Protagonista** con esqueleto animado en tiempo real: caminar, correr y agacharse en 4 direcciones ([poses](docs/personaje.jpg)).
+- **Objetivo**: 2 lingotes de hierro (Armería y Observatorio), carbón (Mazmorras), clavos de herradura (Establos) y el martillo del herrero (en la **Cripta**, cerrada con llave: la llave está en la Biblioteca). Con todo, se forja la **herradura** en el yunque de la Herrería y se abre el **portón** del Vestíbulo.
+- Oscuridad con farol propio, antorchas, velas y chimeneas; lluvia y relámpagos en el patio; 6 notas con la historia de la Dama Blanca y dos sustos con guion fijo. **La Dama todavía no persigue** (eso viene después).
+- Controles: joystick + CORRER / AGACHAR / ACCIÓN en el celu; flechas o WASD, R, C, E y Esc en teclado.
+
+## Cooperativo en red local (sin internet)
+
+| Buscar / hostear | Sala | Jugando de a dos |
+|---|---|---|
+| ![red local](docs/coop-red-local.jpg) | ![sala](docs/coop-sala.jpg) | ![juego](docs/coop-juego.jpg) |
+
+1. Los celulares en **la misma red Wi-Fi** (o uno comparte **hotspot** y el otro se conecta).
+2. En uno: JUGAR → ONLINE → **Red local** → **Hostear partida**. La app levanta un servidor dentro del celu y muestra su IP.
+3. En el otro: **Buscar en la red** (búsqueda automática por UDP) o escribí la IP en **Conectar por IP**.
+4. En la sala: chat, **Estoy listo**, y el anfitrión toca **Iniciar partida**. Los dos cargan el castillo.
+
+Qué se sincroniza: posiciones y animaciones de todos, objetos (si uno lo agarra, desaparece para todos; si dos lo agarran a la vez gana el primero), **inventario compartido**, llave y puerta de la cripta, forja de la herradura, portón y la salida: **ganan cuando salen todos**. El anfitrión es la autoridad del mundo; si alguien se desconecta, los demás siguen.
+
+**Desde una PC**: `node tools/lan-server.cjs "Mi sala"` levanta el mismo servidor; después en el navegador abrí `web/index.html`, Hostear partida (se conecta al servidor de esa PC) y los celulares se unen por la IP que muestra la terminal.
+
+El modo **Internet (beta)** (PeerJS) sigue disponible en la otra pestaña y también juega el castillo cooperativo.
 
 ## Estructura
 
@@ -61,7 +76,10 @@ Juego de terror para celular (Android). Demo 0.3: **intro del estudio**, **menú
 ./
   web/        el juego (HTML5 Canvas); se puede abrir index.html en el navegador
     lib/      PeerJS 1.5.5 (MIT) para el online
-    js/game/  nivel jugable: sprites.js (personaje), castle.js (mapa), level.js (motor)
+    js/game/  nivel jugable: art.js (arte vectorial), hero.js (personaje), castle.js (mapa), level.js (motor y cooperativo)
+    js/lan.js red local (cliente)
+  android/…/LanServer.java  servidor de red local dentro de la app
+  tools/lan-server.cjs      el mismo servidor para PC
   android/    proyecto Android nativo (WebView a pantalla completa, horizontal, inmersivo)
   tools/      make-icons.cjs: genera los íconos de la app
   docs/       capturas

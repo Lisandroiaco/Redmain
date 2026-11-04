@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Color;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.VibrationEffect;
@@ -18,6 +19,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 /**
  * Contenedor nativo de Red Main: una WebView a pantalla completa que carga el
  * juego HTML5 empaquetado en assets/ y le expone un pequeño puente
@@ -26,6 +30,8 @@ import android.webkit.WebViewClient;
 public class MainActivity extends Activity {
 
     private WebView web;
+    private final LanServer lan = new LanServer();
+    private WifiManager.MulticastLock multicast;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -115,8 +121,26 @@ public class MainActivity extends Activity {
         hideSystemUi();
     }
 
+    private void holdMulticast(boolean on) {
+        try {
+            if (on) {
+                if (multicast == null) {
+                    WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                    if (wm == null) return;
+                    multicast = wm.createMulticastLock("redmain-lan");
+                    multicast.setReferenceCounted(false);
+                }
+                multicast.acquire();
+            } else if (multicast != null && multicast.isHeld()) {
+                multicast.release();
+            }
+        } catch (Exception ignored) { }
+    }
+
     @Override
     protected void onDestroy() {
+        lan.stop();
+        holdMulticast(false);
         if (web != null) {
             web.destroy();
             web = null;
@@ -128,6 +152,46 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void exit() {
             runOnUiThread(MainActivity.this::finishAndRemoveTask);
+        }
+
+        /** Arranca el servidor local. Devuelve {"ok":true,"ips":[...],"port":47800} o {"ok":false,"error":"..."}. */
+        @JavascriptInterface
+        public String lanHost(String name) {
+            JSONObject o = new JSONObject();
+            try {
+                lan.start(name);
+                holdMulticast(true);
+                o.put("ok", true);
+                o.put("port", LanServer.WS_PORT);
+                o.put("ips", new JSONArray(LanServer.localIps()));
+            } catch (Exception e) {
+                try { o.put("ok", false); o.put("error", String.valueOf(e.getMessage())); } catch (Exception ignored) { }
+            }
+            return o.toString();
+        }
+
+        @JavascriptInterface
+        public void lanStop() {
+            lan.stop();
+            holdMulticast(false);
+        }
+
+        @JavascriptInterface
+        public String lanIps() {
+            return new JSONArray(LanServer.localIps()).toString();
+        }
+
+        /** Busca salas en la red; el resultado llega a RM.LAN._found(lista). */
+        @JavascriptInterface
+        public void lanDiscover() {
+            new Thread(() -> {
+                holdMulticast(true);
+                String json = LanServer.discover();
+                if (!lan.isRunning()) holdMulticast(false);
+                runOnUiThread(() -> {
+                    if (web != null) web.evaluateJavascript("window.RM && RM.LAN && RM.LAN._found(" + json + ")", null);
+                });
+            }, "lan-discover").start();
         }
 
         @JavascriptInterface

@@ -255,21 +255,18 @@
       openPanel('solo');
     } else if (item.id === 'online') {
       RM.audio.select(); RM.vibrate([20]);
-      setState('loading');
-      loader.start([function () { return RM.Online.connect().catch(function () { /* se muestra en el panel */ }); }], function () {
-        setState('modes');
-        openPanel('online');
-        RM.Online.UI.open();
-      }, { minTime: 1.1, label: 'CONECTANDO' });
+      openPanel('online');
+      RM.Online.UI.open();
     }
   }
 
   // Nivel jugable: carga el mapa completo (tiles, muebles, sprites, luces) antes de entrar.
-  function startLevel() {
+  function startLevel(net) {
     closePanels(true);
     setState('loading');
     scene.strike(true);
-    level = new RM.Level(exitLevel);
+    level = new RM.Level({ onExit: exitLevel, net: net || null });
+    play = net ? { mode: 'online' } : { mode: 'solo', level: 1 };
     fadeTarget = 0.7; fadeSpeed = 0.6;
     loader.start(level.tasks(), function () {
       setState('level');
@@ -279,12 +276,13 @@
   }
 
   function exitLevel() {
-    level = null;
+    var wasOnline = play && play.mode === 'online';
+    level = null; play = null;
     RM.audio.setMuffle(0);
     setState('modes');
     fade = 1; fadeTarget = 0; fadeSpeed = 0.8;
-    RM.Screens.renderSolo();
-    openPanel('solo');
+    if (wasOnline) { RM.Online.endMatch(); openPanel('online'); RM.Online.UI.open(); }
+    else { RM.Screens.renderSolo(); openPanel('solo'); }
   }
 
   // Arranca una partida con pantalla de carga.
@@ -312,9 +310,9 @@
 
   RM.Screens.bindStory(function (slot) { startPlay({ mode: 'story', slot: slot }); });
   RM.Screens.bindSolo(function (n) { startPlay({ mode: 'solo', level: n }); });
-  RM.Online.UI.bind(function (L) {
-    startPlay({ mode: 'online', room: L.room.name, players: L.players.map(function (p) { return p.name; }) });
-  });
+  // Cooperativo: todos cargan el castillo y juegan juntos.
+  RM.Online.UI.bind(function () { startLevel(RM.Online.gameNet()); });
+  RM.Online.on('closed', function (why) { if (state === 'level' && level && level.net) level.say(why + ' Seguís jugando solo.', 5); });
 
   /* ---------- Paneles DOM ---------- */
 
