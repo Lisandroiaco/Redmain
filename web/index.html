@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Red Main</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="game" aria-label="Red Main — menú principal"></canvas>
+
+  <div id="settings" class="panel" role="dialog" aria-labelledby="settingsTitle">
+    <div class="box">
+      <h2 id="settingsTitle">Ajustes</h2>
+      <label class="row"><span>Música</span><input id="optMusic" type="range" min="0" max="100"></label>
+      <label class="row"><span>Efectos</span><input id="optSfx" type="range" min="0" max="100"></label>
+      <label class="row"><span>Lluvia</span><input id="optRain" type="range" min="10" max="100"></label>
+      <div class="row"><span>Rayos</span>
+        <div class="seg" data-opt="thunder"><button data-v="true">Sí</button><button data-v="false">No</button></div>
+      </div>
+      <div class="row"><span>Vibración</span>
+        <div class="seg" data-opt="vibration"><button data-v="true">Sí</button><button data-v="false">No</button></div>
+      </div>
+      <div class="row"><span>Calidad</span>
+        <div class="seg" data-opt="quality"><button data-v="baja">Baja</button><button data-v="media">Media</button><button data-v="alta">Alta</button></div>
+      </div>
+      <button id="settingsBack" class="btn">Volver</button>
+      <p class="credits">Red Main · Demo 0.1 — un juego de Ojo Rojo Games</p>
+    </div>
+  </div>
+
+  <div id="confirm" class="panel" role="dialog" aria-labelledby="confirmTitle">
+    <div class="box small">
+      <h2 id="confirmTitle">¿Abandonar la noche?</h2>
+      <p>La tormenta va a seguir esperándote.</p>
+      <div class="btns"><button id="exitYes" class="btn">Salir</button><button id="exitNo" class="btn ghost">Quedarme</button></div>
+    </div>
+  </div>
+
+  <div id="bye" class="panel"><p>Hasta la próxima noche…</p></div>
+
+  <script src="js/util.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/menu.js"></script>
+  <script src="js/intro.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
