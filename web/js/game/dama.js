@@ -23,10 +23,10 @@
     g.lineTo(x1 - nx * w1, y1 - ny * w1); g.arc(x1, y1, w1, a - Math.PI / 2, a + Math.PI / 2, true);
     g.closePath(); fs(g, fill, 1.1);
   }
-  function spiral(g, cx, cy, r0, turns, lw, color) {
+  function spiral(g, cx, cy, r0, turns, lw, color, rot) {
     g.beginPath();
     for (var i = 0; i <= 60; i++) {
-      var t = i / 60, a = t * turns * TAU, r = r0 * (1 - t * 0.85);
+      var t = i / 60, a = t * turns * TAU + (rot || 0), r = r0 * (1 - t * 0.85);
       var x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
       if (i) g.lineTo(x, y); else g.moveTo(x, y);
     }
@@ -58,6 +58,9 @@
     if (mirror) g.scale(-1, 1);
     var back = s.face === 3 && mode !== 'point';
     var hover = -3 - Math.sin(t * 2.2) * 2;
+    // Surge del humo desde el piso / se deshace hacia arriba.
+    if (s.rise != null && s.rise < 1) { var rr = s.rise; g.scale(1 + (1 - rr) * 0.35, 0.15 + rr * 0.85); }
+    if (s.dissolve) { var dd = s.dissolve; g.translate(0, -dd * 30); g.scale(1 - dd * 0.45, 1 + dd * 0.7); }
     var crouch = mode === 'windup' ? Math.min(1, (s.k || 1)) : 0;
     g.translate(0, hover);
     if (crouch) g.scale(1 + crouch * 0.06, 1 - crouch * 0.14);
@@ -86,7 +89,8 @@
     g.bezierCurveTo(-14, -34, -22 + sway * 0.4, -16, -hemW + sway, -1);
     var n = 13;
     for (var i = 0; i <= n; i++) {
-      var x = -hemW + sway + (i / n) * (hemW * 2), y = i % 2 ? -5 - Math.sin(t * 5 + i) * 1.6 : 1 + Math.sin(t * 4 + i * 1.7) * 1.2;
+      var leg = mode === 'run' ? Math.sin(t * 14 + (i < n / 2 ? 0 : Math.PI)) * 2.4 : 0;
+      var x = -hemW + sway + (i / n) * (hemW * 2), y = (i % 2 ? -5 - Math.sin(t * 5 + i) * 1.6 : 1 + Math.sin(t * 4 + i * 1.7) * 1.2) + leg;
       g.lineTo(x, y);
     }
     g.bezierCurveTo(22 + sway * 0.4, -16, 14, -34, 10.5, -49);
@@ -124,8 +128,8 @@
     // Brazo del garfio.
     var hk = hookArm(mode, t, s);
     if (!back || mode === 'windup') {
-      limb(g, -13, -63, hk.ex, hk.ey, 3.6, 3, lg(g, -18, -8, C.dress, '#ffffff', C.dressS));
-      limb(g, hk.ex, hk.ey, hk.hx, hk.hy, 3, 2.4, C.dress);
+      arm(g, -13, -63, hk.ex, hk.ey, hk.hx, hk.hy);
+      cuff(g, hk.hx, hk.hy, Math.atan2(hk.hy - hk.ey, hk.hx - hk.ex), t);
       hook(g, hk.hx, hk.hy, hk.a, 1);
       handDraw(g, hk.hx, hk.hy, hk.a);
     }
@@ -137,9 +141,14 @@
     for (var q = 0; q <= 8; q++) g.lineTo(-15 + q * 3.75, -57.5 + (q % 2 ? 1.8 : 0) + Math.abs(q - 4) * -0.3);
     g.lineTo(17, -60); g.lineTo(21, -61.5); g.quadraticCurveTo(12, -70, 5, -73); g.closePath();
     fs(g, vg(g, -74, -57, '#f8f7fc', C.dressS), 1.3);
+    g.strokeStyle = 'rgba(120,116,150,0.7)'; g.lineWidth = 0.6;
+    for (var lc = 0; lc < 9; lc++) { g.beginPath(); g.arc(-14.6 + lc * 3.65, -57.2 + (lc % 2 ? 1.6 : 0), 1.5, 0, Math.PI); g.stroke(); }
+    g.fillStyle = 'rgba(255,255,255,0.35)'; g.beginPath(); g.ellipse(-8, -67, 4, 1.4, -0.5, 0, TAU); g.fill();
     g.strokeStyle = 'rgba(100,96,130,0.5)'; g.lineWidth = 0.7;
     g.beginPath(); g.moveTo(-8, -68); g.quadraticCurveTo(-12, -63, -14, -59); g.moveTo(8, -68); g.quadraticCurveTo(12, -63, 14, -59); g.stroke();
 
+    var tilt = mode === 'point' ? (s.point === 3 ? -0.08 : s.point === 0 ? 0.1 : 0.14) * Math.min(1, s.k == null ? 1 : s.k) : mode === 'run' ? 0.12 : mode === 'windup' ? 0.18 : mode === 'clone' ? Math.sin(t * 3) * 0.12 : Math.sin(t * 0.9) * 0.05;
+    g.save(); g.translate(0, -73); g.rotate(tilt); g.translate(0, 73);
     if (back) {
       // De espaldas: el pelo tapa todo.
       g.beginPath();
@@ -160,14 +169,17 @@
       g.fillStyle = 'rgba(80,76,110,0.25)'; g.beginPath(); g.ellipse(0, -76, 6, 3.2, 0, 0, TAU); g.fill();
       // Ojo en espiral (rojo cuando caza).
       var hunting = mode === 'run' || mode === 'leap' || mode === 'windup' || mode === 'clone';
-      spiral(g, 3.6, -83.4, 2.6, 1.6, 0.9, hunting ? '#c0101a' : '#2a2632');
+      spiral(g, 3.6, -83.4, 2.6, 1.6, 0.9, hunting ? '#c0101a' : '#2a2632', t * (hunting ? 6 : 1.5));
       if (hunting) { g.fillStyle = 'rgba(255,40,40,0.35)'; g.beginPath(); g.arc(3.6, -83.4, 4, 0, TAU); g.fill(); }
       // Mechones de adelante.
       [-1, 1].forEach(function (k) {
         g.beginPath();
-        g.moveTo(k * 6.5, -89); g.bezierCurveTo(k * 9.5, -82, k * 9, -72, k * 10.5 + sway * 0.2, -60);
-        g.lineTo(k * 13, -61); g.bezierCurveTo(k * 12, -74, k * 12, -84, k * 9.5, -90); g.closePath();
-        fs(g, C.hair, 1);
+        var hs = Math.sin(t * 2.1 + k * 1.3) * 1.4 + sway * 0.2 - (mode === 'run' ? k * 1.5 + 2 : 0);
+        g.moveTo(k * 6.5, -89); g.bezierCurveTo(k * 9.5, -82, k * 9 + hs * 0.4, -72, k * 10.5 + hs, -59);
+        g.lineTo(k * 12 + hs * 0.8, -57.5); g.lineTo(k * 13.2 + hs, -61); g.bezierCurveTo(k * 12, -74, k * 12, -84, k * 9.5, -90); g.closePath();
+        fs(g, vg(g, -90, -58, C.hairL, C.hair), 1);
+        g.strokeStyle = 'rgba(255,255,255,0.1)'; g.lineWidth = 0.6;
+        g.beginPath(); g.moveTo(k * 8.6, -86); g.quadraticCurveTo(k * 10.4, -74, k * 11 + hs * 0.8, -62); g.stroke();
       });
     }
     // Sombrero: ala ancha y copa con cinta.
@@ -179,12 +191,14 @@
     g.beginPath(); g.moveTo(-10.8, -93.8); g.quadraticCurveTo(0, -92, 10.8, -93.8); g.lineTo(11, -90.6); g.quadraticCurveTo(0, -88.8, -11, -90.6); g.closePath();
     g.fillStyle = C.band; g.fill();
     g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 0.6; g.beginPath(); g.moveTo(-6, -101); g.lineTo(-5.4, -95); g.moveTo(5, -101.4); g.lineTo(4.6, -95); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,0.4)'; g.beginPath(); g.ellipse(-12, -90.6, 7, 1.2, -0.05, 0, TAU); g.fill();
+    g.restore();
 
     // Brazo que señala (u otros gestos).
     var pa = pointArm(mode, t, s);
     if (pa) {
-      limb(g, 13, -63, pa.ex, pa.ey, 3.6, 3, lg(g, 8, 20, C.dress, '#ffffff', C.dressS));
-      limb(g, pa.ex, pa.ey, pa.hx, pa.hy, 3, 2.3, C.dress);
+      arm(g, 13, -63, pa.ex, pa.ey, pa.hx, pa.hy);
+      cuff(g, pa.hx, pa.hy, pa.a, t);
       pointHand(g, pa.hx, pa.hy, pa.a, pa.open);
     }
     g.restore();
@@ -211,6 +225,25 @@
     if (mode === 'leap' || mode === 'clone') return { ex: 22, ey: -68, hx: 32, hy: -72, a: -0.3, open: true };
     if (mode === 'windup') return { ex: 20, ey: -58, hx: 24, hy: -48, a: 1.2, open: true };
     return { ex: 16, ey: -51, hx: 15, hy: -39, a: 1.6 };
+  }
+  // Brazo de un solo trazo (manga larga), sin costuras en el codo.
+  function arm(g, sx, sy, ex, ey, hx, hy) {
+    var cx = ex * 2 - (sx + hx) / 2, cy = ey * 2 - (sy + hy) / 2;
+    var path = function () { g.beginPath(); g.moveTo(sx, sy); g.quadraticCurveTo(cx, cy, hx, hy); };
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    path(); g.strokeStyle = OUT; g.lineWidth = 7.4; g.stroke();
+    path(); g.strokeStyle = C.dress; g.lineWidth = 5.2; g.stroke();
+    path(); g.strokeStyle = 'rgba(140,136,170,0.5)'; g.lineWidth = 1.4; g.save(); g.translate(0.9, 1.1); g.stroke(); g.restore();
+    path(); g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 1; g.save(); g.translate(-0.8, -0.9); g.stroke(); g.restore();
+  }
+  // Puño acampanado con encaje.
+  function cuff(g, x, y, a, t) {
+    g.save(); g.translate(x, y); g.rotate(a);
+    var fl = Math.sin(t * 4 + x) * 0.6;
+    g.beginPath(); g.moveTo(-5, -2.6); g.lineTo(-0.5, -4.6 - fl); g.lineTo(0.5, 4.6 + fl); g.lineTo(-5, 2.6); g.closePath();
+    fs(g, vg(g, -5, 5, '#ffffff', C.dressS), 0.9);
+    g.strokeStyle = 'rgba(120,116,150,0.7)'; g.lineWidth = 0.5; g.beginPath(); g.moveTo(-0.2, -4); g.lineTo(0.3, 4); g.stroke();
+    g.restore();
   }
   function handDraw(g, x, y) {
     g.beginPath(); g.ellipse(x, y, 2.6, 2.3, 0, 0, TAU); fs(g, C.skin, 1);

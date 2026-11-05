@@ -86,6 +86,9 @@
       g.beginPath(); g.moveTo(-5 * w, -1); g.bezierCurveTo(-5.6 * w, -6, 5.6 * w, -6, 5 * w, -1); g.quadraticCurveTo(0, 1.8, -5 * w, -1); g.closePath();
       fillStroke(g, vgrad(g, -5, 1, pal.shoeL, pal.shoe), 1.2);
       g.fillStyle = pal.sole; g.beginPath(); g.ellipse(0, 0.2, 5 * w, 1.2, 0, 0, Math.PI); g.fill();
+      g.strokeStyle = 'rgba(230,220,200,0.55)'; g.lineWidth = 0.5;
+      g.beginPath(); g.moveTo(-1.6, -3.4); g.lineTo(1.6, -2.6); g.moveTo(-1.6, -2.4); g.lineTo(1.6, -3.4); g.stroke();
+      g.fillStyle = 'rgba(255,255,255,0.12)'; g.beginPath(); g.ellipse(-1.8 * w, -3.4, 2, 0.9, -0.3, 0, TAU); g.fill();
       g.restore();
     }
   }
@@ -131,9 +134,13 @@
       // Ojos y cejas.
       [-1, 1].forEach(function (k) {
         var ex = k * 4.8, ey = hy - 1;
-        var lost = s.eyeLost && k === -1;
+        var lost = s.eyeLost && k === -1, hurt = s.eyeHurt && k === -1;
         if (lost) {
           g.fillStyle = '#2a0204'; g.beginPath(); g.ellipse(ex, ey, 2.6, 2, 0, 0, TAU); g.fill();
+        } else if (hurt || s.blink || s.dead) {
+          if (hurt) { g.fillStyle = 'rgba(120,30,60,0.55)'; g.beginPath(); g.ellipse(ex, ey + 0.3, 3, 2.4, 0, 0, TAU); g.fill(); }
+          g.strokeStyle = hurt ? '#5a0a10' : OUT; g.lineWidth = 0.9;
+          g.beginPath(); g.moveTo(ex - 2.3, ey); g.quadraticCurveTo(ex, ey + (hurt ? 0.4 : 1.1), ex + 2.3, ey); g.stroke();
         } else {
           g.fillStyle = '#f4f0ea'; g.beginPath(); g.ellipse(ex, ey, 2.4, 1.7 + fear * 0.7, 0, 0, TAU); g.fill();
           g.fillStyle = '#2a1a10'; g.beginPath(); g.arc(ex + look * 1, ey + 0.2, 1.2 - fear * 0.3, 0, TAU); g.fill();
@@ -197,7 +204,9 @@
       g.quadraticCurveTo(-4, hy - 7.6, -10.2, hy - 5.4); g.closePath();
       fillStroke(g, vgrad(g, hy - 17, hy + 4, pal.hairL, pal.hair), 1.3);
       // Ojo, ceja y lentes.
-      if (!s.eyeLost) {
+      if (s.eyeHurt || s.blink || s.dead) {
+        g.strokeStyle = s.eyeHurt ? '#5a0a10' : OUT; g.lineWidth = 0.9; g.beginPath(); g.moveTo(-9, hy - 1); g.quadraticCurveTo(-7.6, hy - 0.2, -6.2, hy - 1); g.stroke();
+      } else if (!s.eyeLost) {
         g.fillStyle = '#f4f0ea'; g.beginPath(); g.ellipse(-7.4, hy - 1, 1.5, 1.5 + fear * 0.5, 0, 0, TAU); g.fill();
         g.fillStyle = '#2a1a10'; g.beginPath(); g.arc(-8.2, hy - 0.8, 0.9, 0, TAU); g.fill();
       }
@@ -241,7 +250,10 @@
   // s = { dir:0 abajo,1 izq,2 der,3 arriba, phase, amp, run, crouch, pick, heal, struggle, down, bleed, eyeLost, wrap, t }
   function draw(g, s, pal) {
     pal = pal || BASE;
-    s = Object.assign({ phase: 0, amp: 0, run: 0, crouch: 0, pick: 0, heal: 0, struggle: 0, down: 0, t: 0 }, s);
+    s = Object.assign({ phase: 0, amp: 0, run: 0, crouch: 0, pick: 0, heal: 0, struggle: 0, down: 0, t: 0, seed: 0 }, s);
+    s.blink = ((s.t + s.seed * 1.37) % 3.9) < 0.12;
+    s.breath = Math.sin((s.t + s.seed) * 2.3) * (1 - Math.min(1, s.amp * 1.5));
+    if (s.flinch) { g.save(); g.translate((Math.random() - 0.5) * 3 * s.flinch, 0); }
     g.save();
     if (s.down > 0) {
       // Tirado en el piso (de costado, con un charco de sangre si sangra).
@@ -259,6 +271,7 @@
     var side = s.dir === 1 || s.dir === 2;
     if (side) drawSide(g, s, pal); else drawFront(g, s, pal, s.dir === 3);
     g.restore();
+    if (s.flinch) g.restore();
   }
 
   function drawFront(g, s, pal, back) {
@@ -267,8 +280,8 @@
     var stride = 1 + run * 0.9;
     var bob = Math.abs(Math.sin(ph)) * amp * (1 + run * 1.6) * (1 - c * 0.6);
     var hipY = -23 + c * 9 - bob * 0.4;
-    var shY = hipY - 26 + c * 2 - bob * 0.6 + (s.pick || 0) * 4;
-    var hy = shY - 13 + (s.pick || 0) * 3;
+    var shY = hipY - 26 + c * 2 - bob * 0.6 + (s.pick || 0) * 4 - s.breath * 0.6;
+    var hy = shY - 13 + (s.pick || 0) * 3 + run * amp * 1.4 - s.breath * 0.25 + Math.abs(Math.cos(ph)) * amp * 0.6;
     var bodyX = Math.sin(ph) * amp * 0.8;
     var str = s.struggle ? Math.sin(s.t * 40) * 1.2 : 0;
 
@@ -289,8 +302,8 @@
     // Brazos de atrás (en la vista de espalda se dibujan antes).
     var arms = function () {
       [-1, 1].forEach(function (k) {
-        var sw = -Math.sin(ph) * k * amp * (back ? -1 : 1);
-        var sx = k * 16 + bodyX, sy = shY + 4;
+        var sw = -Math.sin(ph - 0.45) * k * amp * (back ? -1 : 1);
+        var sx = k * (16 + s.breath * 0.3) + bodyX, sy = shY + 4;
         var hx, hy2;
         if (s.struggle) { hx = k * 8 + str; hy2 = hy + 4; }
         else if (s.heal) { hx = k * 7 + Math.sin(s.t * 12 + k) * 2; hy2 = hy - 4; }
@@ -326,6 +339,8 @@
     g.save(); g.clip();
     g.fillStyle = 'rgba(0,0,0,0.18)'; g.beginPath(); g.ellipse(16, hipY - 10, 9, 22, 0, 0, TAU); g.fill();
     g.fillStyle = 'rgba(255,255,255,0.08)'; g.beginPath(); g.ellipse(-6, shY + 10, 7, 9, 0, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(255,240,220,0.13)'; g.beginPath(); g.ellipse(-19, shY + 13, 2.6, 13, 0.08, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(0,0,0,0.16)'; g.beginPath(); g.ellipse(0, shY + 5, 10, 3.4, 0, 0, TAU); g.fill();
     g.strokeStyle = 'rgba(0,0,0,0.22)'; g.lineWidth = 0.9;
     g.beginPath(); g.moveTo(-15, hipY - 6); g.quadraticCurveTo(0, hipY - 1, 15, hipY - 6); g.stroke();
     g.beginPath(); g.moveTo(-13, shY + 10); g.quadraticCurveTo(-11, shY + 14, -13, shY + 18); g.moveTo(13, shY + 10); g.quadraticCurveTo(11, shY + 14, 13, shY + 18); g.stroke();
@@ -347,7 +362,8 @@
     g.restore();
 
     arms();
-    g.save(); g.translate(tx * 0.6 + str, 0);
+    g.fillStyle = 'rgba(0,0,0,0.22)'; g.beginPath(); g.ellipse(tx * 0.6, shY + 2.5, 9.5, 3.2, 0, 0, TAU); g.fill();
+    g.save(); g.translate(tx * 0.6 + str, hy + 12); g.rotate(Math.sin(ph) * 0.045 * amp + (s.heal ? Math.sin(s.t * 6) * 0.05 : 0)); g.translate(0, -hy - 12);
     head(g, back ? 'back' : 'front', hy, pal, s);
     g.restore();
   }
@@ -419,8 +435,11 @@
     g.restore();
     if (s.bleed) { g.fillStyle = 'rgba(130,4,8,0.8)'; g.beginPath(); g.ellipse(-8, shY + 6, 3, 5, 0.3, 0, TAU); g.fill(); }
     g.fillStyle = '#1e140e'; g.beginPath(); g.moveTo(-12.4, hipY - 0.4); g.lineTo(8.8, hipY - 0.6); g.lineTo(8.6, hipY + 2.4); g.lineTo(-11.6, hipY + 2.6); g.closePath(); g.fill();
-    var hy = shY - 12.5;
+    var hy = shY - 12.5 - s.breath * 0.3 + run * amp * 1.2;
+    g.fillStyle = 'rgba(0,0,0,0.2)'; g.beginPath(); g.ellipse(0, shY + 2, 7, 2.6, 0, 0, TAU); g.fill();
+    g.save(); g.translate(0, hy + 12); g.rotate(Math.sin(ph * 2) * 0.03 * amp - run * amp * 0.06); g.translate(0, -hy - 12);
     head(g, 'side', hy, pal, s);
+    g.restore();
     g.save(); g.translate(0, shY + 27.5); arm(false); g.restore();
     g.restore();
   }

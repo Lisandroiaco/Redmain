@@ -573,6 +573,8 @@
     this.wind = lerp(this.wind, target, Math.min(1, dt * 0.8));
     this.tilt.x = lerp(this.tilt.x, this.tiltTarget.x, Math.min(1, dt * 4));
     this.tilt.y = lerp(this.tilt.y, this.tiltTarget.y, Math.min(1, dt * 4));
+    if (!isFinite(this.tiltTarget.x) || !isFinite(this.tiltTarget.y)) this.tiltTarget = { x: 0, y: 0 };
+    if (!isFinite(this.tilt.x) || !isFinite(this.tilt.y)) this.tilt = { x: 0, y: 0 };
 
     if (RM.settings.thunder) {
       this.nextStrike -= dt;

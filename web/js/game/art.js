@@ -31,10 +31,24 @@
   function lin(g, x1, y1, x2, c1, c2) { var gr = g.createLinearGradient(x1, y1, x2, y1); gr.addColorStop(0, c1); gr.addColorStop(1, c2); return gr; }
   function vlin(g, y1, y2, c1, c2) { var gr = g.createLinearGradient(0, y1, 0, y2); gr.addColorStop(0, c1); gr.addColorStop(1, c2); return gr; }
   function flame(g, x, y, s) {
-    var gr = g.createRadialGradient(x, y - s, 0, x, y - s, s * 1.4);
-    gr.addColorStop(0, '#fff2b0'); gr.addColorStop(0.4, '#ffb23a'); gr.addColorStop(1, 'rgba(255,80,0,0)');
+    var now = (typeof performance !== 'undefined' ? performance.now() : 0) / 1000;
+    var w1 = Math.sin(now * 11 + x * 0.7) * s * 0.25, w2 = Math.sin(now * 17 + y) * s * 0.15;
+    var halo = g.createRadialGradient(x, y - s, 0, x, y - s, s * 2.4);
+    halo.addColorStop(0, 'rgba(255,170,60,0.35)'); halo.addColorStop(1, 'rgba(255,90,0,0)');
+    g.fillStyle = halo; g.beginPath(); g.arc(x, y - s, s * 2.4, 0, 6.283); g.fill();
+    var gr = g.createRadialGradient(x, y - s * 0.7, 0, x, y - s, s * 1.5);
+    gr.addColorStop(0, '#ffe9a0'); gr.addColorStop(0.45, '#ff9a2a'); gr.addColorStop(1, 'rgba(220,50,0,0)');
     g.fillStyle = gr;
-    g.beginPath(); g.moveTo(x - s * 0.6, y); g.quadraticCurveTo(x - s * 0.7, y - s, x, y - s * 2.2); g.quadraticCurveTo(x + s * 0.7, y - s, x + s * 0.6, y); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(x - s * 0.62, y);
+    g.bezierCurveTo(x - s * 0.9, y - s * 0.9, x - s * 0.2 + w1, y - s * 1.5, x + w1 * 1.6, y - s * 2.3);
+    g.bezierCurveTo(x + s * 0.3 + w1, y - s * 1.4, x + s * 0.9, y - s * 0.9, x + s * 0.62, y);
+    g.quadraticCurveTo(x, y + s * 0.35, x - s * 0.62, y); g.fill();
+    g.fillStyle = 'rgba(255,252,230,0.9)';
+    g.beginPath(); g.moveTo(x - s * 0.28, y - s * 0.1);
+    g.quadraticCurveTo(x - s * 0.3, y - s * 0.7, x + w2, y - s * 1.15);
+    g.quadraticCurveTo(x + s * 0.3, y - s * 0.7, x + s * 0.28, y - s * 0.1);
+    g.quadraticCurveTo(x, y + s * 0.1, x - s * 0.28, y - s * 0.1); g.fill();
+    g.fillStyle = 'rgba(90,140,255,0.45)'; g.beginPath(); g.ellipse(x, y - s * 0.05, s * 0.26, s * 0.14, 0, 0, 6.283); g.fill();
   }
 
   /* ---------- Pisos y muros ---------- */

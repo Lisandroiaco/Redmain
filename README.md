@@ -1,6 +1,6 @@
 # Red Main — Ojo Rojo Games
 
-Juego de terror para celular (Android). Demo 0.5: **intro del estudio**, **menú principal** y la pantalla de **JUGAR** con tres modos (Historia, 1 Jugador y Online).
+Juego de terror para celular (Android). Demo 0.6: **intro del estudio**, **menú principal** y la pantalla de **JUGAR** con tres modos (Historia, 1 Jugador y Online).
 
 | Intro "Ojo Rojo Games" | Menú (JUGAR resaltado) |
 |---|---|
@@ -37,7 +37,7 @@ Juego de terror para celular (Android). Demo 0.5: **intro del estudio**, **menú
 - **Online (beta, funciona de verdad)**: buscador de salas activas con jugadores y ping, crear sala, entrar, lista de jugadores, chat, botón "Estoy listo" y el anfitrión inicia la partida para todos. Usa **PeerJS**: los celulares se conectan directo (P2P) y el servidor público de PeerJS solo los presenta, así que no hace falta montar un servidor propio. Hasta 8 salas a la vez, 4 jugadores por sala.
   - Para usar un servidor PeerJS propio: abrí el juego con `?peer=https://tu-servidor:443/` o guardá `{"url":"https://tu-servidor/"}` en `localStorage["redmain.peer"]`.
 
-## Nivel 1 — El Castillo del Terror (demo 0.5)
+## Nivel 1 — El Castillo del Terror (demo 0.6)
 
 **Castillo enorme**: 257×212 tiles (unas 10 veces el de la demo 0.4), **130 salas** en 5 alas (Norte, Sur, Este, Oeste y Central) con patios y cementerios a la intemperie. Se genera siempre igual (semilla fija), así todos los jugadores ven el mismo mapa. Hay casi 3500 muebles: bibliotecas, alcobas, cocinas, comedores, bodegas, mazmorras, armerías, galerías, estudios, salas de música con piano, baños con bañera de sangre, capillas, observatorios, establos, la Herrería, la Cripta, el Salón del Trono y el Gran Vestíbulo.
 
@@ -50,6 +50,7 @@ Juego de terror para celular (Android). Demo 0.5: **intro del estudio**, **menú
 - **MAPA** (botón arriba a la derecha o tecla M): muestra solo las salas que ya exploraste (en cooperativo, las que exploró cualquiera del equipo), los objetos que viste, la Herrería y dónde está cada jugador.
 - **Objetivo**: 2 lingotes de hierro, carbón, clavos de herradura y el martillo del herrero (en la **Cripta**, cerrada con llave). Las **notas** que hay por el castillo dicen en qué sala quedó cada cosa. Con todo, se forja la **herradura** en el yunque de la Herrería y se abre el **portón** del Gran Vestíbulo.
 - **Vendas** y **agua bendita** repartidas por todo el castillo (se guardan en tu bolsillo, no son compartidas).
+- **Animaciones**: respira quieto, parpadea, la cabeza se mece al caminar, brazos con inercia, polvo al correr; la Dama surge del humo desde el piso, inclina la cabeza hacia donde señala, el ojo espiral gira, deja una estela cuando corre y se deshace hacia arriba al irse; llamas que ondulan.
 - **Protagonista redibujado** con contornos curvos, rodillas y codos, sombreado y detalles (lentes, barba, remera con estampa): caminar, correr, agacharse, **agacharse a agarrar objetos** (el objeto vuela al inventario), vendarse, forcejear, desangrarse y caer ([poses](docs/personaje.jpg)).
 - Controles: joystick + CORRER / AGACHAR / ACCIÓN (+ VENDA cuando sangrás) en el celu; flechas o WASD, R, C, E, V, M y Esc en teclado.
 
@@ -64,6 +65,12 @@ Juego de terror para celular (Android). Demo 0.5: **intro del estudio**, **menú
 3. Si vas **para donde señala**, grita y **te persigue corriendo** (rápida: hay que correr). Si no le hacés caso (o te quedás quieto), **se clona**: cuatro Damas te rodean y te matan.
 4. Cuando te alcanza **salta sobre vos** con el garfio. Te salvás tirándole **agua bendita** de cerca (el botón ACCIÓN se pone azul: AGUA) o escapándote lejos hasta que se esfuma.
 5. Si te agarra: escena en primer plano de cómo **te clava el garfio en el ojo** y empezás a **desangrarte** (50 s). Te salva una **venda** o un **compañero** que se acerque y mantenga **CURAR**. Si no, morís.
+   - **Seguís jugando pero ves mal**: imagen doble y borrosa, el lado del ojo herido oscuro, sangre que chorrea por la pantalla, parpadeos a negro y la cámara que se marea. Cuanto menos tiempo te queda, peor. Ya vendado, el ojo queda lastimado (se nota un poco) hasta que reintentes.
+
+| Desangrándote · parpadeo · vendado · sin un ojo |
+|---|
+| ![visión](docs/vision-herido.jpg) |
+
 6. **Muy pocas veces** empieza un **forcejeo**: hay que tocar la pantalla muy rápido. Si ganás, se deshace en humo; si perdés, **te saca un ojo** (te sangra y desde ahí ves solo la mitad de la pantalla).
 
 | Señala, persigue, salta, garfio, forcejeo, ojo, clones y muerte |

@@ -201,6 +201,9 @@
     this.rain = [];
     this.smoke = [];
     this.trail = [];
+    this.dust = [];
+    this.screenBlood = [];
+    this.wwTrail = [];
     this.flyers = [];
     this.cine = null; this.qte = null; this.dead = null; this.over = null; this.showMap = false;
     this.hints = {};
@@ -657,8 +660,10 @@
   Level.prototype.startBleeding = function (lost) {
     var p = this.p;
     p.h = 1; p.bleedT = BLEED; p.wrap = 0;
-    if (lost) p.eye = 1;
-    this.say(this.bag.bandage ? '¡Te estás desangrando! Usá una VENDA.' : (this.net ? '¡Te estás desangrando! Buscá una venda o pedile a un compañero que te cure.' : '¡Te estás desangrando! Buscá una venda rápido.'), 4);
+    p.eye = lost ? 2 : Math.max(p.eye, 1);
+    this.screenBlood = [];
+    this.say(lost ? 'Te sacó un ojo. Seguís, pero ves la mitad y te desangrás. ¡Vendate!' :
+      'Te cortó el ojo. Ves borroso y te desangrás' + (this.bag.bandage ? ': usá una VENDA.' : this.net ? ': buscá una venda o que te cure un compañero.' : ': buscá una venda rápido.'), 4.5);
   };
   Level.prototype.die = function (why) {
     var p = this.p;
@@ -670,8 +675,8 @@
   };
   Level.prototype.respawn = function () {
     var p = this.p, sp = this.map.spawns[0];
-    var keep = { eye: 0 };
-    this.p = this.newPlayer(sp); this.p.eye = keep.eye;
+    this.p = this.newPlayer(sp);
+    this.screenBlood = []; this.blink = null;
     this.dead = null; this.cine = null; this.qte = null;
     this.ww.s = 'idle'; this.ww.next = 50; this.ww.clones = []; this.ww.tg = null;
     this.say('Volviste a la entrada. Conservás todo lo que juntaste.', 3.5);
@@ -712,6 +717,7 @@
     this.updateOthers(dt);
     RM.Dama.smoke.update(this.smoke, dt);
     this.updateTrail(dt);
+    this.updateFx(dt);
     this.flash *= Math.exp(-dt * 6);
     var g = this.map.gate;
     if (g.opening && g.open < 1) { g.open = Math.min(1, g.open + dt * 0.5); if (g.open >= 1) this.map.setDoorSolid(); }
@@ -773,13 +779,94 @@
     while (this.trail.length && this.trail[0].t > 40) this.trail.shift();
   };
 
+  Level.prototype.updateFx = function (dt) {
+    var i, d;
+    for (i = this.dust.length - 1; i >= 0; i--) { d = this.dust[i]; d.t += dt; d.x += d.vx * dt; d.y += d.vy * dt; d.r += dt * 10; if (d.t > d.max) this.dust.splice(i, 1); }
+    // Sangre que corre por la pantalla (del lado del ojo herido).
+    var p = this.p;
+    if (p.h === 1 && Math.random() < dt * 1.6 && this.screenBlood.length < 9) this.screenBlood.push({ x: rand(0.02, 0.42), y: rand(-0.05, 0.25), w: rand(0.006, 0.016), len: 0, sp: rand(0.05, 0.16), a: 1 });
+    for (i = this.screenBlood.length - 1; i >= 0; i--) {
+      d = this.screenBlood[i];
+      d.len = Math.min(0.9, d.len + d.sp * dt); d.sp *= Math.exp(-dt * 0.35);
+      if (p.h !== 1) d.a -= dt * 0.5;
+      if (d.a <= 0) this.screenBlood.splice(i, 1);
+    }
+    // Parpadeos a negro mientras sangra.
+    if (p.h === 1) {
+      this.blinkT = (this.blinkT == null ? rand(3, 6) : this.blinkT) - dt;
+      if (this.blinkT <= 0) { this.blink = 0; this.blinkT = rand(2.5, 6) * (0.5 + p.bleedT / BLEED); }
+    }
+    if (this.blink != null) { this.blink += dt; if (this.blink > 0.55) this.blink = null; }
+    // Estela de la Dama cuando corre o salta.
+    var w = this.ww;
+    this.wwTrailT = (this.wwTrailT || 0) - dt;
+    if (['chase', 'windup', 'leap', 'recover'].indexOf(w.s) >= 0 && w.vis > 0.5) {
+      if (this.wwTrailT <= 0) { this.wwTrailT = 0.06; this.wwTrail.push({ x: w.x, y: w.y, h: w.hgt || 0, t: this.t }); if (this.wwTrail.length > 5) this.wwTrail.shift(); }
+    } else if (this.wwTrail.length && this.wwTrailT <= 0) { this.wwTrail.shift(); this.wwTrailT = 0.05; }
+  };
+
+  // Qué tan mal ves (0 bien … 1 muy mal).
+  Level.prototype.visionSev = function () {
+    var p = this.p;
+    if (p.h === 2) return 0;
+    if (p.h === 1) return 0.55 + 0.45 * (1 - clamp(p.bleedT / BLEED, 0, 1));
+    return p.eye === 2 ? 0.25 : p.eye === 1 ? 0.15 : 0;
+  };
+
+  // Visión dañada: doble imagen borrosa, lado herido oscuro, sangre en la pantalla, parpadeos.
+  Level.prototype.drawVision = function (ctx, W, H, dpr) {
+    var sev = this.visionSev(), p = this.p, t = this.t;
+    if (sev <= 0.01 && !this.screenBlood.length) return;
+    if (sev > 0.01) {
+      var bw = Math.max(8, Math.round(W / 5)), bh = Math.max(8, Math.round(H / 5));
+      if (!this.vbuf || this.vbuf.width !== bw || this.vbuf.height !== bh) this.vbuf = RM.canvas(bw, bh);
+      var vg = this.vbuf.getContext('2d');
+      vg.clearRect(0, 0, bw, bh);
+      vg.drawImage(ctx.canvas, 0, 0, bw, bh);
+      ctx.save();
+      var ox = (6 + Math.sin(t * 1.3) * 7) * sev * Math.min(W, H) / 390, oy = Math.cos(t * 1.1) * 3 * sev;
+      ctx.globalAlpha = 0.28 + 0.3 * sev;
+      ctx.drawImage(this.vbuf, ox, oy, W, H);
+      ctx.globalAlpha = 0.22 * sev;
+      ctx.drawImage(this.vbuf, -ox * 0.6, -oy, W, H);
+      // Lado del ojo herido.
+      var side = ctx.createLinearGradient(0, 0, W * 0.6, 0);
+      side.addColorStop(0, 'rgba(40,0,0,' + (0.35 + 0.5 * sev) + ')'); side.addColorStop(1, 'rgba(40,0,0,0)');
+      ctx.globalAlpha = 1; ctx.fillStyle = side; ctx.fillRect(0, 0, W * 0.6, H);
+      if (p.h === 1) { ctx.fillStyle = 'rgba(110,0,0,' + 0.1 * sev + ')'; ctx.fillRect(0, 0, W, H); }
+      ctx.restore();
+    }
+    // Sangre que chorrea.
+    var u = Math.min(W, H);
+    ctx.save();
+    this.screenBlood.forEach(function (d) {
+      var y0 = d.y * H, y1 = y0 + d.len * H, w = d.w * u * 1.6, x = d.x * W + Math.sin(d.len * 9 + d.x * 40) * w * 0.6;
+      ctx.globalAlpha = clamp(d.a, 0, 1) * 0.85;
+      var gr = ctx.createLinearGradient(0, y0, 0, y1);
+      gr.addColorStop(0, 'rgba(90,0,4,0.9)'); gr.addColorStop(1, 'rgba(160,6,10,0.95)');
+      ctx.fillStyle = gr;
+      ctx.beginPath(); ctx.moveTo(x - w * 0.4, y0); ctx.quadraticCurveTo(x - w * 0.6, (y0 + y1) / 2, x - w * 0.35, y1); ctx.arc(x, y1, w * 0.5, Math.PI, 0, true); ctx.quadraticCurveTo(x + w * 0.6, (y0 + y1) / 2, x + w * 0.4, y0); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x, y0, w * 1.4, w * 0.8, 0, 0, 6.283); ctx.fill();
+    });
+    ctx.restore();
+    // Parpadeo: los párpados se cierran.
+    if (this.blink != null) {
+      var k = Math.sin(Math.min(1, this.blink / 0.55) * Math.PI), lid = H * 0.5 * k, soft = H * 0.12;
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, lid); ctx.fillRect(0, H - lid, W, lid);
+      var g1 = ctx.createLinearGradient(0, lid, 0, lid + soft); g1.addColorStop(0, 'rgba(0,0,0,' + k + ')'); g1.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g1; ctx.fillRect(0, lid, W, soft);
+      var g2 = ctx.createLinearGradient(0, H - lid, 0, H - lid - soft); g2.addColorStop(0, 'rgba(0,0,0,' + k + ')'); g2.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g2; ctx.fillRect(0, H - lid - soft, W, soft);
+    }
+  };
+
   Level.prototype.updateCine = function (dt) {
     var c = this.cine;
     c.t += dt;
     if (c.t < c.dur) return;
     this.cine = null;
     if (c.kind === 'stab') { this.startBleeding(false); this.request('attackDone', { won: false }); }
-    else if (c.kind === 'tear') { this.startBleeding(true); this.request('attackDone', { won: false }); this.say('Te sacó un ojo. ¡Vendate ya!', 4); }
+    else if (c.kind === 'tear') { this.startBleeding(true); this.request('attackDone', { won: false }); }
     else if (c.kind === 'clones') this.die('clones');
   };
 
@@ -831,8 +918,16 @@
       if (Math.abs(ix) > Math.abs(iy)) p.dir = ix < 0 ? 1 : 2; else p.dir = iy < 0 ? 3 : 0;
       p.phase += dt * (mode === 'run' ? 13 : mode === 'crouch' ? 6 : 9);
       p.stepAcc += sp * dt;
-      if (p.stepAcc > (mode === 'run' ? 44 : 34)) { p.stepAcc = 0; RM.audio.step(this.floorAt(p.x, p.y), mode); }
+      if (p.stepAcc > (mode === 'run' ? 44 : 34)) {
+        p.stepAcc = 0; RM.audio.step(this.floorAt(p.x, p.y), mode);
+        if (mode === 'run') this.puffDust(p.x, p.y);
+      }
     }
+  };
+
+  Level.prototype.puffDust = function (x, y) {
+    for (var i = 0; i < 3; i++) this.dust.push({ x: x + rand(-8, 8), y: y - rand(0, 3), vx: rand(-20, 20), vy: rand(-14, -4), r: rand(3, 6), t: 0, max: rand(0.4, 0.7) });
+    if (this.dust.length > 60) this.dust.splice(0, this.dust.length - 60);
   };
 
   Level.prototype.updateOthers = function (dt) {
@@ -845,6 +940,7 @@
       o.amp += ((o.moving ? 1 : 0) - o.amp) * Math.min(1, dt * 10);
       o.phase += dt * (o.mode === 1 ? 13 : o.mode === 2 ? 6 : 9) * o.amp;
       o.downK += ((o.h === 2 ? 1 : 0) - o.downK) * Math.min(1, dt * 4);
+      if (o.mode === 1 && o.amp > 0.5) { o.dustT = (o.dustT || 0) - dt; if (o.dustT <= 0) { o.dustT = 0.24; self.puffDust(o.x, o.y); } }
       if (o.h === 1) { o.dropT = (o.dropT || 0) - dt; if (o.dropT <= 0) { o.dropT = 0.35; self.trail.push({ x: o.x + rand(-6, 6), y: o.y, t: 0 }); } }
       self.explore(self.map.room[((o.y - 8) / T | 0) * self.map.W + (o.x / T | 0)]);
     });
@@ -860,7 +956,9 @@
   };
   // Opacidad de la Dama (aparece y se esfuma en el humo).
   Level.prototype.wwShow = function (dt) {
-    var w = this.ww, want = (w.s === 'idle' || w.s === 'warn' || w.s === 'vanish' || w.s === 'attack') ? 0 : 1;
+    var w = this.ww;
+    if (w.s === 'vanish') { if (w.t > 0.9) w.vis = Math.max(0, w.vis - dt * 4); return; }
+    var want = (w.s === 'idle' || w.s === 'warn' || w.s === 'attack') ? 0 : 1;
     w.vis += (want - w.vis) * Math.min(1, dt * (want ? 6 : 5));
   };
 
@@ -1033,6 +1131,8 @@
     var cy = clamp(p.y - 24 - vh / 2, 0, Math.max(0, m.H * T - vh));
     var shake = this.ww.s === 'leap' && this.ww.tg === this.myId() ? 3 : 0;
     cx += (Math.random() - 0.5) * shake; cy += (Math.random() - 0.5) * shake;
+    var sev = this.visionSev();
+    if (sev > 0.05) { cx += Math.sin(this.t * 0.9) * 9 * sev; cy += Math.cos(this.t * 0.7) * 5 * sev; }
     this.cam = { x: cx, y: cy };
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
     ctx.save();
@@ -1042,6 +1142,7 @@
     this.drawDecals(ctx, cx, cy, vw, vh);
     this.drawDoors(ctx);
     this.drawPickups(ctx, cx, cy, vw, vh);
+    this.drawDust(ctx);
     this.drawSorted(ctx, cx, cy, vw, vh);
     this.drawFlames(ctx, cx, cy, vw, vh);
     RM.Dama.smoke.draw(ctx, this.smoke);
@@ -1052,6 +1153,7 @@
     this.drawNames(ctx, cx, cy, S);
     if (this.scare && this.scare.kind === 'mirror') this.drawMirrorScare(ctx, W, H);
     if (this.cine || this.qte) { this.drawCine(ctx, W, H); return; }
+    this.drawVision(ctx, W, H, dpr);
     this.drawBleed(ctx, W, H);
     this.drawHUD(ctx, W, H);
     this.drawFlyers(ctx);
@@ -1155,10 +1257,10 @@
   Level.prototype.heroState = function (o, isMe) {
     if (isMe) {
       return { dir: o.dir, phase: o.phase, amp: o.amp, run: o.runK, crouch: o.crouchK, pick: o.pickT > 0 ? Math.sin(Math.min(1, (0.45 - o.pickT) / 0.45) * Math.PI) : 0,
-        heal: o.healT > 0 || o.reviveT > 0, struggle: !!this.qte, down: o.downK, bleed: o.h === 1, dead: o.h === 2, eyeLost: o.eye, wrap: o.wrap, t: this.t };
+        heal: o.healT > 0 || o.reviveT > 0, struggle: !!this.qte, down: o.downK, bleed: o.h === 1, dead: o.h === 2, eyeLost: o.eye === 2, eyeHurt: o.eye === 1, wrap: o.wrap, t: this.t, seed: this.myIdx };
     }
     return { dir: o.dir, phase: o.phase, amp: o.amp, run: o.mode === 1 ? 1 : 0, crouch: o.mode === 2 ? 1 : 0, pick: o.an === 1 ? 0.8 : 0, heal: o.an === 2, struggle: o.an === 3,
-      down: o.downK, bleed: o.h === 1, dead: o.h === 2, eyeLost: o.eye, wrap: o.wrap, t: this.t };
+      down: o.downK, bleed: o.h === 1, dead: o.h === 2, eyeLost: o.eye === 2, eyeHurt: o.eye === 1, wrap: o.wrap, t: this.t, seed: o.idx };
   };
 
   Level.prototype.drawSorted = function (ctx, cx, cy, vw, vh) {
@@ -1184,11 +1286,21 @@
     var w = this.ww;
     if (w.vis > 0.02) {
       var mode = w.s === 'point' ? 'point' : w.s === 'chase' || w.s === 'recover' ? 'run' : w.s === 'windup' ? 'windup' : w.s === 'leap' ? 'leap' : w.s === 'clones' ? 'clone' : 'idle';
+      var rise = w.s === 'point' ? RM.easeOutCubic(Math.min(1, w.t / 0.6)) : 1;
+      var dis = w.s === 'vanish' ? Math.min(1, w.t / 0.9) : 0;
+      var dstate = { t: self.t, mode: mode, point: w.point, face: w.face, lean: w.lean, k: w.s === 'point' ? Math.min(1, w.t / 0.7) : 1, rise: rise, dissolve: dis };
+      self.wwTrail.forEach(function (tr, i) {
+        list.push({ y: tr.y, draw: function () {
+          ctx.save(); ctx.globalAlpha = w.vis * 0.07 * (i + 1); ctx.translate(tr.x, tr.y - tr.h);
+          RM.Dama.draw(ctx, Object.assign({}, dstate, { t: tr.t }));
+          ctx.restore();
+        } });
+      });
       list.push({ y: w.y + 1, draw: function () {
         var h = w.hgt || 0;
-        ctx.fillStyle = 'rgba(0,0,0,' + 0.4 * w.vis + ')'; ctx.beginPath(); ctx.ellipse(w.x, w.y, 18 - h * 0.15, 6, 0, 0, 6.283); ctx.fill();
-        ctx.save(); ctx.globalAlpha = w.vis * (0.86 + Math.sin(self.t * 9) * 0.06); ctx.translate(w.x, w.y - h);
-        RM.Dama.draw(ctx, { t: self.t, mode: mode, point: w.point, face: w.face, lean: w.lean, k: w.s === 'point' ? Math.min(1, w.t / 0.5) : 1 });
+        ctx.fillStyle = 'rgba(0,0,0,' + 0.4 * w.vis * (1 - dis) + ')'; ctx.beginPath(); ctx.ellipse(w.x, w.y, (18 - h * 0.15) * rise, 6, 0, 0, 6.283); ctx.fill();
+        ctx.save(); ctx.globalAlpha = w.vis * (1 - dis) * (0.86 + Math.sin(self.t * 9) * 0.06); ctx.translate(w.x, w.y - h);
+        RM.Dama.draw(ctx, dstate);
         ctx.restore();
       } });
       w.clones.forEach(function (c, i) {
@@ -1202,6 +1314,13 @@
     }
     list.sort(function (a, b) { return a.y - b.y; });
     list.forEach(function (o) { o.draw(); });
+  };
+
+  Level.prototype.drawDust = function (ctx) {
+    this.dust.forEach(function (d) {
+      ctx.fillStyle = 'rgba(150,140,130,' + 0.35 * (1 - d.t / d.max) + ')';
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, 6.283); ctx.fill();
+    });
   };
 
   Level.prototype.ring = function (ctx, x, y, k) {
@@ -1286,7 +1405,7 @@
       light(o.x, o.y - 28, rr, 1);
       light(o.x, o.y - 28, 70, 1);
     };
-    if (!(this.flicker > 0 && Math.random() < 0.6)) lantern(this.p, this.p.crouchK, this.p.eye);
+    if (!(this.flicker > 0 && Math.random() < 0.6)) lantern(this.p, this.p.crouchK, this.p.eye === 2);
     Object.keys(this.others).forEach(function (id) { lantern(self.others[id], self.others[id].mode === 2 ? 1 : 0, 0); });
     // La Dama brilla un poco en la oscuridad.
     if (this.ww.vis > 0.1) light(this.ww.x, this.ww.y - 50, 70, 0.35 * this.ww.vis);
@@ -1308,7 +1427,7 @@
     if (this.flash > 0.02) { ctx.globalAlpha = this.flash * 0.15; ctx.fillStyle = '#c8c0ff'; ctx.fillRect(0, 0, W, H); }
     ctx.restore();
     // Sin un ojo: la mitad izquierda queda en penumbra.
-    if (this.p.eye) {
+    if (this.p.eye === 2) {
       var gr = ctx.createLinearGradient(0, 0, W * 0.55, 0);
       gr.addColorStop(0, 'rgba(0,0,0,0.92)'); gr.addColorStop(0.6, 'rgba(0,0,0,0.5)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = gr; ctx.fillRect(0, 0, W * 0.55, H);
