@@ -45,7 +45,7 @@
 
   function handle(d) {
     var lob = N.lobby;
-    if (d.t === 'p' || d.t === 'req' || d.t === 'w') { L.game.forEach(function (f) { f(d); }); return; }
+    if (d.t === 'p' || d.t === 'req' || d.t === 'w' || d.t === 'ww' || d.t === 'ev') { L.game.forEach(function (f) { f(d); }); return; }
     if (d.t === '_left') {
       if (L.isHost && lob) {
         var id = L.cidToId[d.cid];

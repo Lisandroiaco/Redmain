@@ -1,6 +1,6 @@
 # Red Main — Ojo Rojo Games
 
-Juego de terror para celular (Android). Demo 0.4: **intro del estudio**, **menú principal** y la pantalla de **JUGAR** con tres modos (Historia, 1 Jugador y Online).
+Juego de terror para celular (Android). Demo 0.5: **intro del estudio**, **menú principal** y la pantalla de **JUGAR** con tres modos (Historia, 1 Jugador y Online).
 
 | Intro "Ojo Rojo Games" | Menú (JUGAR resaltado) |
 |---|---|
@@ -37,21 +37,40 @@ Juego de terror para celular (Android). Demo 0.4: **intro del estudio**, **menú
 - **Online (beta, funciona de verdad)**: buscador de salas activas con jugadores y ping, crear sala, entrar, lista de jugadores, chat, botón "Estoy listo" y el anfitrión inicia la partida para todos. Usa **PeerJS**: los celulares se conectan directo (P2P) y el servidor público de PeerJS solo los presenta, así que no hace falta montar un servidor propio. Hasta 8 salas a la vez, 4 jugadores por sala.
   - Para usar un servidor PeerJS propio: abrí el juego con `?peer=https://tu-servidor:443/` o guardá `{"url":"https://tu-servidor/"}` en `localStorage["redmain.peer"]`.
 
-## Nivel 1 — El Castillo del Terror (demo 0.4)
+## Nivel 1 — El Castillo del Terror (demo 0.5)
 
-| Establos | Puerta de la cripta |
-|---|---|
-| ![establos](docs/nivel1-establos.jpg) | ![cripta](docs/nivel1-cripta.jpg) |
+**Castillo enorme**: 257×212 tiles (unas 10 veces el de la demo 0.4), **130 salas** en 5 alas (Norte, Sur, Este, Oeste y Central) con patios y cementerios a la intemperie. Se genera siempre igual (semilla fija), así todos los jugadores ven el mismo mapa. Hay casi 3500 muebles: bibliotecas, alcobas, cocinas, comedores, bodegas, mazmorras, armerías, galerías, estudios, salas de música con piano, baños con bañera de sangre, capillas, observatorios, establos, la Herrería, la Cripta, el Salón del Trono y el Gran Vestíbulo.
 
-**Mapa completo** (17 salas, 80×66 tiles): Biblioteca, Galería de Retratos, Capilla, Observatorio, Salón del Trono, Cocina, Gran Comedor, Bodega de Vinos, Patio Interior, Cuartel de Sirvientes, Alcoba de la Dama, Mazmorras, Herrería, Armería, Vestíbulo, Cripta y Establos.
+![mapa completo](docs/mapa-castillo.jpg)
 
-![mapa](docs/mapa-castillo.jpg)
+| De cerca: Gran Vestíbulo y alrededores |
+|---|
+| ![zona](docs/mapa-zona.jpg) |
 
-- **Arte vectorial** (sin píxeles): personaje, pisos, muros, muebles y objetos dibujados con curvas, degradés y contornos suaves, pre-renderizados a la resolución de cada pantalla.
-- **Protagonista** con esqueleto animado en tiempo real: caminar, correr y agacharse en 4 direcciones ([poses](docs/personaje.jpg)).
-- **Objetivo**: 2 lingotes de hierro (Armería y Observatorio), carbón (Mazmorras), clavos de herradura (Establos) y el martillo del herrero (en la **Cripta**, cerrada con llave: la llave está en la Biblioteca). Con todo, se forja la **herradura** en el yunque de la Herrería y se abre el **portón** del Vestíbulo.
-- Oscuridad con farol propio, antorchas, velas y chimeneas; lluvia y relámpagos en el patio; 6 notas con la historia de la Dama Blanca y dos sustos con guion fijo. **La Dama todavía no persigue** (eso viene después).
-- Controles: joystick + CORRER / AGACHAR / ACCIÓN en el celu; flechas o WASD, R, C, E y Esc en teclado.
+- **MAPA** (botón arriba a la derecha o tecla M): muestra solo las salas que ya exploraste (en cooperativo, las que exploró cualquiera del equipo), los objetos que viste, la Herrería y dónde está cada jugador.
+- **Objetivo**: 2 lingotes de hierro, carbón, clavos de herradura y el martillo del herrero (en la **Cripta**, cerrada con llave). Las **notas** que hay por el castillo dicen en qué sala quedó cada cosa. Con todo, se forja la **herradura** en el yunque de la Herrería y se abre el **portón** del Gran Vestíbulo.
+- **Vendas** y **agua bendita** repartidas por todo el castillo (se guardan en tu bolsillo, no son compartidas).
+- **Protagonista redibujado** con contornos curvos, rodillas y codos, sombreado y detalles (lentes, barba, remera con estampa): caminar, correr, agacharse, **agacharse a agarrar objetos** (el objeto vuela al inventario), vendarse, forcejear, desangrarse y caer ([poses](docs/personaje.jpg)).
+- Controles: joystick + CORRER / AGACHAR / ACCIÓN (+ VENDA cuando sangrás) en el celu; flechas o WASD, R, C, E, V, M y Esc en teclado.
+
+### La Dama Blanca
+
+| Dibujo (según el boceto) |
+|---|
+| ![dama](docs/dama-blanca.jpg) |
+
+1. **Se escucha un garfio** arrastrándose por la piedra.
+2. Aparece en una **nube de humo** exactamente **arriba, abajo, a la izquierda o a la derecha** del jugador y **le señala un camino**.
+3. Si vas **para donde señala**, grita y **te persigue corriendo** (rápida: hay que correr). Si no le hacés caso (o te quedás quieto), **se clona**: cuatro Damas te rodean y te matan.
+4. Cuando te alcanza **salta sobre vos** con el garfio. Te salvás tirándole **agua bendita** de cerca (el botón ACCIÓN se pone azul: AGUA) o escapándote lejos hasta que se esfuma.
+5. Si te agarra: escena en primer plano de cómo **te clava el garfio en el ojo** y empezás a **desangrarte** (50 s). Te salva una **venda** o un **compañero** que se acerque y mantenga **CURAR**. Si no, morís.
+6. **Muy pocas veces** empieza un **forcejeo**: hay que tocar la pantalla muy rápido. Si ganás, se deshace en humo; si perdés, **te saca un ojo** (te sangra y desde ahí ves solo la mitad de la pantalla).
+
+| Señala, persigue, salta, garfio, forcejeo, ojo, clones y muerte |
+|---|
+| ![ataque](docs/dama-ataque.jpg) |
+
+Solo: al morir podés reintentar desde la entrada conservando lo que juntaste.
 
 ## Cooperativo en red local (sin internet)
 
@@ -59,12 +78,16 @@ Juego de terror para celular (Android). Demo 0.4: **intro del estudio**, **menú
 |---|---|---|
 | ![red local](docs/coop-red-local.jpg) | ![sala](docs/coop-sala.jpg) | ![juego](docs/coop-juego.jpg) |
 
+| Tres jugadores: la Dama elige a uno, el que no obedece muere y queda mirando, otro sangra y un compañero lo cura |
+|---|
+| ![coop dama](docs/coop-dama.jpg) |
+
 1. Los celulares en **la misma red Wi-Fi** (o uno comparte **hotspot** y el otro se conecta).
 2. En uno: JUGAR → ONLINE → **Red local** → **Hostear partida**. La app levanta un servidor dentro del celu y muestra su IP.
 3. En el otro: **Buscar en la red** (búsqueda automática por UDP) o escribí la IP en **Conectar por IP**.
 4. En la sala: chat, **Estoy listo**, y el anfitrión toca **Iniciar partida**. Los dos cargan el castillo.
 
-Qué se sincroniza: posiciones y animaciones de todos, objetos (si uno lo agarra, desaparece para todos; si dos lo agarran a la vez gana el primero), **inventario compartido**, llave y puerta de la cripta, forja de la herradura, portón y la salida: **ganan cuando salen todos**. El anfitrión es la autoridad del mundo; si alguien se desconecta, los demás siguen.
+**Hasta 4 jugadores.** Qué se sincroniza: posiciones y animaciones de todos, **la Dama Blanca** (la maneja el anfitrión; elige a quién atacar, y todos la ven señalar, perseguir, saltar y clonarse), la salud de cada uno (sangrando, muerto, sin un ojo, vendado), curar a un compañero, objetos (si uno lo agarra, desaparece para todos; si dos lo agarran a la vez gana el primero), **inventario compartido**, llave y puerta de la cripta, forja de la herradura, portón y la salida: **ganan cuando salen todos los que siguen vivos** (los muertos miran a sus compañeros); si la Dama mata a todos, pierden. El anfitrión es la autoridad del mundo; si alguien se desconecta, los demás siguen.
 
 **Desde una PC**: `node tools/lan-server.cjs "Mi sala"` levanta el mismo servidor; después en el navegador abrí `web/index.html`, Hostear partida (se conecta al servidor de esa PC) y los celulares se unen por la IP que muestra la terminal.
 
@@ -76,7 +99,7 @@ El modo **Internet (beta)** (PeerJS) sigue disponible en la otra pestaña y tamb
 ./
   web/        el juego (HTML5 Canvas); se puede abrir index.html en el navegador
     lib/      PeerJS 1.5.5 (MIT) para el online
-    js/game/  nivel jugable: art.js (arte vectorial), hero.js (personaje), castle.js (mapa), level.js (motor y cooperativo)
+    js/game/  nivel jugable: art.js (arte vectorial), hero.js (personaje), dama.js (la Dama Blanca), castle.js (generador del castillo), level.js (motor, IA y cooperativo)
     js/lan.js red local (cliente)
   android/…/LanServer.java  servidor de red local dentro de la app
   tools/lan-server.cjs      el mismo servidor para PC

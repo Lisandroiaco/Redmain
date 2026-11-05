@@ -236,7 +236,7 @@
       conn.on('open', function () { conn.send({ t: 'join', name: myName }); });
       conn.on('data', function (d) {
         if (!d) return;
-        if (d.t === 'p' || d.t === 'w') { N.gameFns.forEach(function (f) { f(d); }); return; }
+        if (d.t === 'p' || d.t === 'w' || d.t === 'ww' || d.t === 'ev') { N.gameFns.forEach(function (f) { f(d); }); return; }
         if (d.t === 'denied') { clearTimeout(timer); rej(new Error(d.reason)); return; }
         if (d.t === 'welcome') {
           clearTimeout(timer);

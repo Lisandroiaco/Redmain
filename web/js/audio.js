@@ -365,5 +365,119 @@
     thump(t, 60, 1, 0.6);
   };
 
+
+  /* ---------- La Dama Blanca ---------- */
+
+  function panned(node, pan) {
+    if (ctx.createStereoPanner && pan) { var p = ctx.createStereoPanner(); p.pan.value = RM.clamp(pan, -1, 1); node.connect(p); return p; }
+    return node;
+  }
+  function ring(t, f, amp, dur, out) {
+    [1, 2.31, 3.87, 5.72].forEach(function (m, k) {
+      var o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * m;
+      var g = gainNode(0);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp / (k + 1), t + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur / (k * 0.5 + 1));
+      chain(o, g, out); o.start(t); o.stop(t + dur + 0.05);
+    });
+  }
+
+  // Garfio arrastrándose contra la piedra + tintineo de cadena. vol 0..1, pan -1..1.
+  A.hook = function (vol, pan) {
+    if (!ctx) return;
+    var t = ctx.currentTime, v = vol == null ? 1 : vol;
+    var out = gainNode(v); panned(out, pan).connect(sfxBus);
+    var s = ctx.createBufferSource(); s.buffer = white;
+    var bp = filter('bandpass', 2600, 14);
+    bp.frequency.setValueAtTime(1900, t); bp.frequency.linearRampToValueAtTime(3400, t + 0.9); bp.frequency.linearRampToValueAtTime(2300, t + 1.7);
+    var g = gainNode(0);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.9, t + 0.12);
+    g.gain.setValueAtTime(0.9, t + 1.4); g.gain.exponentialRampToValueAtTime(0.001, t + 1.9);
+    var trem = ctx.createOscillator(); trem.frequency.value = 17; var tg = gainNode(0.45);
+    chain(trem, tg, g.gain); trem.start(t); trem.stop(t + 2);
+    chain(s, bp, g, out); s.start(t, Math.random() * 2, 2);
+    ring(t, 1180, 0.16, 1.2, out);
+    ring(t + 1.6, 1460, 0.2, 1.6, out);
+    for (var i = 0; i < 6; i++) noiseHit2(t + 1.65 + i * RM.rand(0.05, 0.09), 'bandpass', RM.rand(3500, 5200), 0.25, 0.05, 6, out);
+  };
+  function noiseHit2(t, type, freq, amp, dur, q, out) {
+    var s = ctx.createBufferSource(); s.buffer = white;
+    var g = gainNode(0);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    chain(s, filter(type, freq, q), g, out); s.start(t, Math.random() * 2, dur + 0.1);
+  }
+
+  // Bocanada de humo (aparece / se esfuma).
+  A.smoke = function (vol) {
+    if (!ctx) return;
+    var t = ctx.currentTime, v = vol == null ? 1 : vol;
+    var s = ctx.createBufferSource(); s.buffer = white;
+    var lp = filter('lowpass', 300, 1);
+    lp.frequency.setValueAtTime(300, t); lp.frequency.exponentialRampToValueAtTime(3200, t + 0.25); lp.frequency.exponentialRampToValueAtTime(200, t + 1.2);
+    var g = gainNode(0);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.7 * v, t + 0.18); g.gain.exponentialRampToValueAtTime(0.001, t + 1.3);
+    chain(s, lp, g, sfxBus); s.start(t, Math.random() * 2, 1.4);
+    thump(t, 55, 0.5 * v, 0.7);
+  };
+
+  // Chillido del salto.
+  A.shriek = function (vol) {
+    if (!ctx) return;
+    var t = ctx.currentTime, v = vol == null ? 1 : vol;
+    [1, 1.34, 1.89, 2.5].forEach(function (m) {
+      var o = ctx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(820 * m, t); o.frequency.exponentialRampToValueAtTime(1500 * m, t + 0.18); o.frequency.exponentialRampToValueAtTime(700 * m, t + 0.8);
+      var vib = ctx.createOscillator(); vib.frequency.value = 31; var vg = gainNode(60 * m); chain(vib, vg, o.frequency); vib.start(t); vib.stop(t + 0.9);
+      var g = gainNode(0);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.09 * v, t + 0.03); g.gain.exponentialRampToValueAtTime(0.001, t + 0.85);
+      chain(o, filter('bandpass', 2200, 1.2), g, sfxBus); o.start(t); o.stop(t + 0.9);
+    });
+    noiseHit(t, 'highpass', 3000, 0.4 * v, 0.6);
+  };
+
+  // Garfio clavándose.
+  A.stab = function () {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    ring(t, 980, 0.18, 0.5, sfxBus);
+    noiseHit(t + 0.03, 'lowpass', 700, 0.9, 0.35, 3);
+    thump(t + 0.02, 80, 1, 0.5);
+    var o = ctx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(260, t + 0.05); o.frequency.exponentialRampToValueAtTime(60, t + 0.5);
+    var g = gainNode(0);
+    g.gain.setValueAtTime(0, t + 0.05); g.gain.linearRampToValueAtTime(0.2, t + 0.08); g.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+    chain(o, filter('lowpass', 900, 4), g, sfxBus); o.start(t); o.stop(t + 0.6);
+  };
+
+  // Risa de los clones (susurros agudos superpuestos).
+  A.clones = function () {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    for (var i = 0; i < 9; i++) {
+      var tt = t + i * 0.11;
+      var o = ctx.createOscillator(); o.type = 'triangle';
+      var f = RM.rand(500, 900);
+      o.frequency.setValueAtTime(f, tt); o.frequency.exponentialRampToValueAtTime(f * 0.7, tt + 0.16);
+      var g = gainNode(0);
+      g.gain.setValueAtTime(0, tt); g.gain.linearRampToValueAtTime(0.07, tt + 0.02); g.gain.exponentialRampToValueAtTime(0.001, tt + 0.18);
+      chain(o, filter('bandpass', 1500, 2), g, sfxBus); o.start(tt); o.stop(tt + 0.2);
+    }
+    A.whisper();
+  };
+
+  A.heal = function () {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    bell(t, 523.25, 0.12); bell(t + 0.12, 659.25, 0.1); bell(t + 0.24, 783.99, 0.1);
+    noiseHit(t, 'highpass', 2500, 0.15, 0.3);
+  };
+
+  A.splash = function () {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    noiseHit(t, 'bandpass', 1200, 0.6, 0.4, 0.8);
+    ring(t, 1760, 0.08, 0.6, sfxBus);
+  };
+
   RM.audio = A;
 })(window.RM);
